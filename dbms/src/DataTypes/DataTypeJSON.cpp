@@ -90,7 +90,7 @@ public:
 };
 
 
-void registerDataTypeDomainIPv4AndIPv6(DataTypeFactory & factory)
+void registerDataTypeJSON(DataTypeFactory & factory)
 {
     factory.registerSimpleDataTypeCustom("JSON", []
     {
