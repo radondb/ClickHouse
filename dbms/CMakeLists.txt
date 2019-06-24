@@ -339,6 +339,10 @@ if (USE_HDFS)
     target_include_directories (clickhouse_common_io SYSTEM BEFORE PRIVATE ${HDFS3_INCLUDE_DIR})
 endif()
 
+if(USE_SIMDJSON)
+    target_link_libraries(dbms PRIVATE ${SIMDJSON_LIBRARY})
+endif()
+
 if (USE_BROTLI)
     target_link_libraries (clickhouse_common_io PRIVATE ${BROTLI_LIBRARY})
     target_include_directories (clickhouse_common_io SYSTEM BEFORE PRIVATE ${BROTLI_INCLUDE_DIR})
