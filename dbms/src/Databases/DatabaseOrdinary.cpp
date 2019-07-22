@@ -462,7 +462,7 @@ ASTPtr DatabaseOrdinary::getCreateDatabaseQuery(const Context & /*context*/) con
 }
 
 
-void DatabaseOrdinary::shutdown()
+void DatabaseOrdinary::shutdown(const String & query_id)
 {
     /// You can not hold a lock during shutdown.
     /// Because inside `shutdown` function the tables can work with database, and mutex is not recursive.
@@ -473,13 +473,11 @@ void DatabaseOrdinary::shutdown()
         tables_snapshot = tables;
     }
 
-    for (const auto & kv: tables_snapshot)
+    for (const auto & table_snapshot: tables_snapshot)
     {
-        kv.second->shutdown();
+        auto table_lock = table_snapshot.second->lockExclusively(query_id);
+        table_snapshot.second->shutdown();
     }
-
-    std::lock_guard lock(mutex);
-    tables.clear();
 }
 
 void DatabaseOrdinary::alterTable(
@@ -544,8 +542,20 @@ void DatabaseOrdinary::alterTable(
 }
 
 
-void DatabaseOrdinary::drop()
+void DatabaseOrdinary::drop(const String & query_id)
 {
+    Tables tables_snapshot;
+    {
+        std::lock_guard lock(mutex);
+        tables_snapshot = tables;
+    }
+
+    for (const auto & table_snapshot: tables_snapshot)
+    {
+        auto table_lock = table_snapshot.second->lockExclusively(query_id);
+        table_snapshot.second->drop();
+    }
+
     Poco::File(data_path).remove(false);
     Poco::File(metadata_path).remove(false);
 }

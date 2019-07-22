@@ -91,7 +91,7 @@ public:
 
     DatabaseIteratorPtr getIterator(const Context & context, const FilterByNameFunction & filter_by_table_name = {}) override;
 
-    void shutdown() override;
+    void shutdown(const String & query_id) override;
 
     virtual ~DatabaseWithOwnTablesBase() override;
 

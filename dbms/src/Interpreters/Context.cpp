@@ -268,7 +268,7 @@ struct ContextShared
         /// We still hold "databases" in Context (instead of std::move) for Buffer tables to flush data correctly.
 
         for (auto & database : current_databases)
-            database.second->shutdown();
+            database.second->shutdown(RWLockImpl::NO_QUERY);
 
         {
             std::lock_guard lock(mutex);

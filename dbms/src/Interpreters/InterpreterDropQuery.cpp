@@ -159,32 +159,36 @@ BlockIO InterpreterDropQuery::executeToDatabase(String & database_name, ASTDropQ
         else if (kind == ASTDropQuery::Kind::Detach)
         {
             context.detachDatabase(database_name);
-            database->shutdown();
+            database->shutdown(context.getCurrentQueryId());
         }
         else if (kind == ASTDropQuery::Kind::Drop)
         {
+            /*
             for (auto iterator = database->getIterator(context); iterator->isValid(); iterator->next())
             {
                 String current_table_name = iterator->table()->getTableName();
                 executeToTable(database_name, current_table_name, kind, false, false, false);
             }
+            */
 
-            auto context_lock = context.getLock();
+            {
+                auto context_lock = context.getLock();
 
-            /// Someone could have time to delete the database before us.
-            context.assertDatabaseExists(database_name);
+                /// Someone could have time to delete the database before us.
+                context.assertDatabaseExists(database_name);
 
-            /// Someone could have time to create a table in the database to be deleted while we deleted the tables without the context lock.
-            if (!context.getDatabase(database_name)->empty(context))
-                throw Exception("New table appeared in database being dropped. Try dropping it again.", ErrorCodes::DATABASE_NOT_EMPTY);
+                /// Someone could have time to create a table in the database to be deleted while we deleted the tables without the context lock.
+                if (!context.getDatabase(database_name)->empty(context))
+                    throw Exception("New table appeared in database being dropped. Try dropping it again.", ErrorCodes::DATABASE_NOT_EMPTY);
 
-            /// Delete database information from the RAM
-            context.detachDatabase(database_name);
+                /// Delete database information from the RAM
+                context.detachDatabase(database_name);
+            }
 
-            database->shutdown();
+            database->shutdown(context.getCurrentQueryId());
 
             /// Delete the database.
-            database->drop();
+            database->drop(context.getCurrentQueryId());
 
             /// Old ClickHouse versions did not store database.sql files
             Poco::File database_metadata_file(context.getPath() + "metadata/" + escapeForFileName(database_name) + ".sql");

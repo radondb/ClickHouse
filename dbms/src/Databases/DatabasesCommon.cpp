@@ -147,7 +147,7 @@ void DatabaseWithOwnTablesBase::attachTable(const String & table_name, const Sto
         throw Exception("Table " + name + "." + table_name + " already exists.", ErrorCodes::TABLE_ALREADY_EXISTS);
 }
 
-void DatabaseWithOwnTablesBase::shutdown()
+void DatabaseWithOwnTablesBase::shutdown(const String & query_id)
 {
     /// You can not hold a lock during shutdown.
     /// Because inside `shutdown` function tables can work with database, and mutex is not recursive.
@@ -158,20 +158,18 @@ void DatabaseWithOwnTablesBase::shutdown()
         tables_snapshot = tables;
     }
 
-    for (const auto & kv : tables_snapshot)
+    for (const auto & table_snapshot : tables_snapshot)
     {
-        kv.second->shutdown();
+        auto table_lock = table_snapshot.second->lockExclusively(query_id);
+        table_snapshot.second->shutdown();
     }
-
-    std::lock_guard lock(mutex);
-    tables.clear();
 }
 
 DatabaseWithOwnTablesBase::~DatabaseWithOwnTablesBase()
 {
     try
     {
-        shutdown();
+        shutdown(RWLockImpl::NO_QUERY);
     }
     catch (...)
     {

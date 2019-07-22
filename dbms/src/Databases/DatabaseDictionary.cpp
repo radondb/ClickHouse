@@ -191,7 +191,7 @@ ASTPtr DatabaseDictionary::getCreateDatabaseQuery(const Context & /*context*/) c
     return parseQuery(parser, query.data(), query.data() + query.size(), "", 0);
 }
 
-void DatabaseDictionary::shutdown()
+void DatabaseDictionary::shutdown(const String &query_id)
 {
 }
 

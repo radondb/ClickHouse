@@ -87,7 +87,7 @@ public:
 
     ASTPtr getCreateDatabaseQuery(const Context & context) const override;
 
-    void shutdown() override;
+    void shutdown(const String &query_id) override;
 
 private:
     const String name;

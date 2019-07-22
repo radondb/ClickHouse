@@ -143,10 +143,10 @@ public:
     virtual String getTableMetadataPath(const String & /*table_name*/) const { return {}; }
 
     /// Ask all tables to complete the background threads they are using and delete all table objects.
-    virtual void shutdown() = 0;
+    virtual void shutdown(const String & query_id) = 0;
 
     /// Delete data and metadata stored inside the database, if exists.
-    virtual void drop() {}
+    virtual void drop(const String &query_id) {}
 
     virtual ~IDatabase() {}
 };

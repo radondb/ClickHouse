@@ -63,9 +63,9 @@ public:
     String getMetadataPath() const override;
     String getTableMetadataPath(const String & table_name) const override;
 
-    void drop() override;
+    void drop(const String &query_id) override;
 
-    void shutdown() override;
+    void shutdown(const String &query_id) override;
 
 private:
     const String metadata_path;
