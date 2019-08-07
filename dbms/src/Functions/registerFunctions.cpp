@@ -39,6 +39,7 @@ void registerFunctionsGeo(FunctionFactory &);
 void registerFunctionsIntrospection(FunctionFactory &);
 void registerFunctionsNull(FunctionFactory &);
 void registerFunctionsFindCluster(FunctionFactory &);
+void registerFunctionsXZOrder(FunctionFactory &);
 void registerFunctionsJSON(FunctionFactory &);
 void registerFunctionsIntrospection(FunctionFactory &);
 
@@ -78,6 +79,7 @@ void registerFunctions()
     registerFunctionsGeo(factory);
     registerFunctionsNull(factory);
     registerFunctionsFindCluster(factory);
+    registerFunctionsXZOrder(factory);
     registerFunctionsJSON(factory);
     registerFunctionsIntrospection(factory);
 }

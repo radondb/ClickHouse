@@ -8,6 +8,7 @@
 #include <Core/Block.h>
 #include <Core/ColumnNumbers.h>
 #include <DataTypes/IDataType.h>
+#include <Storages/MergeTree/FieldRange.h>
 
 
 namespace llvm

@@ -565,6 +565,7 @@ private:
 
 
 template <> struct Field::TypeToEnum<Null>    { static const Types::Which value = Types::Null; };
+template <> struct Field::TypeToEnum<std::nullptr_t>{ static const Types::Which value = Types::Null; };
 template <> struct Field::TypeToEnum<UInt64>  { static const Types::Which value = Types::UInt64; };
 template <> struct Field::TypeToEnum<UInt128> { static const Types::Which value = Types::UInt128; };
 template <> struct Field::TypeToEnum<Int64>   { static const Types::Which value = Types::Int64; };
@@ -663,6 +664,7 @@ template <> struct NearestFieldTypeImpl<Array> { using Type = Array; };
 template <> struct NearestFieldTypeImpl<Tuple> { using Type = Tuple; };
 template <> struct NearestFieldTypeImpl<bool> { using Type = UInt64; };
 template <> struct NearestFieldTypeImpl<Null> { using Type = Null; };
+template <> struct NearestFieldTypeImpl<std::nullptr_t> { using Type = Null; };
 
 template <> struct NearestFieldTypeImpl<AggregateFunctionStateData> { using Type = AggregateFunctionStateData; };
 
