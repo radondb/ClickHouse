@@ -11,6 +11,8 @@
 #include <Common/HashTable/Hash.h>
 #include <iostream>
 #include <Core/iostream_debug_helpers.h>
+#include <Columns/ColumnsNumber.h>
+#include <ext/bit_cast.h>
 
 
 namespace DB
@@ -45,9 +47,9 @@ namespace DB
 
             auto create_result_type = [&](size_t max_argument_bytes)
             {
-                size_t n_char = (max_argument_bytes * 6 * arguments_type.size() + 7 ) / 8;
-                rows_result_type = std::make_shared<DataTypeFixedString>(n_char);
-                return rows_result_type;
+                fold_size = max_argument_bytes * 6;
+                size_t n_char = (fold_size * arguments_type.size() + 7 ) / 8;
+                return std::make_shared<DataTypeFixedString>(n_char);
             };
 
             size_t max_argument_bytes = 0;
@@ -70,131 +72,109 @@ namespace DB
 
     void executeImpl(Block & block, const ColumnNumbers & arguments, size_t result, size_t input_rows_count) override
     {
-        size_t rows = input_rows_count;
         size_t number_of_elements = arguments.size();
+        size_t fixed_char_pre_row = block.getByPosition(result).type->getSizeOfValueInMemory();
 
-        auto out = ColumnFixedString::create(rows);
-        auto col_to = ColumnVector<UInt32>::create(rows);
-        ColumnVector<UInt32>::Container & vec_to = col_to->getData();
+        auto column_to = ColumnFixedString::create(fixed_char_pre_row);
+        auto & vec_to = column_to->getChars();
+
+        vec_to.assign(input_rows_count * fixed_char_pre_row, static_cast<UInt8>(0));
 
         if (arguments.empty())
-        {
-            // no arguments, should throw
             throw Exception("Function " + getName() + " arguments is empty", ErrorCodes::BAD_ARGUMENTS);
-        }
-
-        auto & out_data = out->getChars();
-        out_data.assign(input_rows_count * result, static_cast<UInt8>(0));
 
         for (size_t i = 0; i < number_of_elements; ++i)
         {
             const auto & arg = block.getByPosition(arguments[i]);
-            executeForArgument(arg.type.get(), arg.column.get(), vec_to);
-            for (size_t j = 0; j < rows_result_type; ++j)
-            {
-                // 位移运算
-            }
+            executeforargument(input_rows_count, fixed_char_pre_row, vec_to, i, arg);
         }
-        block.getByPosition(result).column = std::move(out);
+        block.getByPosition(result).column = std::move(column_to);
     }
 
+        void executeforargument(size_t input_rows_count, size_t fixed_char_pre_row, ColumnFixedString::Chars & vec_to, size_t argument_position,
+                                const ColumnWithTypeAndName & arg) const {
+            WhichDataType whichdatatype(arg.type);
+
+            if (whichdatatype.isUInt8())
+            {
+                executeForInt<UInt8>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isUInt16())
+            {
+                executeForInt<UInt16>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isUInt32())
+            {
+                executeForInt<UInt32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isUInt64())
+            {
+                executeForInt<UInt64>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isInt8())
+            {
+                executeForInt<Int8>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isInt16())
+            {
+                executeForInt<Int16>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isInt32())
+            {
+                executeForInt<Int32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isInt64())
+            {
+                executeForInt<Int64>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isFloat32())
+            {
+                executeForInt<Float32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isFloat64())
+            {
+                executeForInt<Float64>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isDate())
+            {
+                executeForInt<UInt16>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            else if (whichdatatype.isDateTime())
+            {
+                executeForInt<UInt32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
+            }
+            
+        }
+
     private:
-        size_t rows_result_type;
+        size_t fold_size;
+        
         template <typename FromType>
-        void executeIntType(const IColumn * column, ColumnVector<UInt32>::Container & vec_to)
-        {
-            if (const ColumnVector<FromType> * col_from = checkAndGetColumn<ColumnVector<FromType>>(column))
+        void executeForInt(size_t input_rows_count, size_t fixed_char_pre_row, ColumnFixedString::Chars & vec_to,
+                           size_t argument_position, const ColumnWithTypeAndName &arg) const {
+            
+            size_t max_for_type = ext::bit_cast<UInt32, FromType>(std::numeric_limits<FromType>::max());
+            const auto & column_from = static_cast<const ColumnVector<FromType> &>(*arg.column);
+            const typename ColumnVector<FromType>::Container & vec_from = column_from.getData();
+            
+            for (size_t row = 0; row < input_rows_count; ++row)
             {
-                const typename ColumnVector<FromType>::Container & vec_from = col_from->getData();
-
-                size_t size = vec_from.size();
-                for (size_t i = 0; i < size; ++i)
+                for (size_t j = 0; j < fold_size; ++j)
                 {
-                    if constexpr (std::is_same_v<FromType, UInt64>)
+                    UInt32 calc_value;
+                    if constexpr (!std::is_same_v<FromType, UInt64> && !std::is_same_v<FromType, Int64> && !std::is_same_v<FromType, Float64>)
+                        calc_value = ext::bit_cast<UInt32, FromType>(vec_from[row]);
+                    else
                     {
-                        // 函数参数
-                        vec_from[i] >> 32 ^ (vec_from[i] & 0xffffff);
+                        UInt64 from_value = ext::bit_cast<UInt64, FromType>(vec_from[row]);
+                        calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
                     }
-                    // 代表函数返回值 全量 data，每次for ，指向下一个？
-                    vec_to[i] |= calc_xz(vec_from[i]);
+
+                    auto is_less_mid = UInt8( calc_value < max_for_type >> (j + 1));
+                    vec_to[(argument_position * j) / 8 + fixed_char_pre_row * row] |= is_less_mid << ((argument_position * j) % 8);
                 }
             }
-            else
-                throw Exception("Illegal column " + column->getName()
-                                + " of argument of function " + getName(),
-                                ErrorCodes::ILLEGAL_COLUMN);
-        }
-
-        void executeString(const IColumn * column, ColumnVector<UInt32>::Container & vec_to)
-        {
-            if (const ColumnString * col_from = checkAndGetColumn<ColumnString>(column))
-            {
-                const typename ColumnString::Chars & data = col_from->getChars();
-                const typename ColumnString::Offsets & offsets = col_from->getOffsets();
-                size_t size = offsets.size();
-
-                ColumnString::Offsets current_offset = 0;
-                for (size_t i = 0; i < size; ++i)
-                {
-                    const UInt32 hash_string = ImplCityHash32::apply(
-                            reinterpret_cast<const char *>(&data[current_offset]),
-                            offsets[i] - current_offset - 1);
-
-                    current_offset = offsets[i];
-
-                    vec_to[i] |= hash_string;
-                }
-            }
-            else if (const ColumnFixedString * col_from_fixed = checkAndGetColumn<ColumnFixedString>(column))
-            {
-                const typename ColumnFixedString::Chars & data = col_from_fixed->getChars();
-                size_t n = col_from_fixed->getN();
-                size_t size = data.size()/n;
-
-                for (size_t i = 0; i < size; ++i)
-                {
-                    const UInt32 hash_fix_string = ImplCityHash32::apply(
-                            reinterpret_cast<const char *>(&data[i * n]), n);
-
-                    vec_to[i] |= hash_fix_string;
-                }
-            }
-            else
-                throw Exception("Illegal column " + column->getName()
-                                + " of first argument of function " + getName(),
-                                ErrorCodes::ILLEGAL_COLUMN);
-        }
-
-        void executeAny(const IDataType * from_type, const IColumn * icolumn, ColumnVector<UInt32>::Container & vec_to)
-        {
-            WhichDataType which(from_type);
-
-            if      (which.isUInt64()) executeIntType<UInt64>(icolumn, vec_to);
-            else if (which.isInt64()) executeIntType<Int64>(icolumn, vec_to);
-            else if (which.isUInt8()) executeIntType<UInt8>(icolumn, vec_to);
-            else if (which.isUInt16()) executeIntType<UInt16>(icolumn, vec_to);
-            else if (which.isUInt32()) executeIntType<UInt32>(icolumn, vec_to);
-            else if (which.isUInt64()) executeIntType<UInt64>(icolumn, vec_to);
-            else if (which.isInt8()) executeIntType<Int8>(icolumn, vec_to);
-            else if (which.isInt16()) executeIntType<Int16>(icolumn, vec_to);
-            else if (which.isInt32()) executeIntType<Int32>(icolumn, vec_to);
-            else if (which.isInt64()) executeIntType<Int64>(icolumn, vec_to);
-            else if (which.isEnum8()) executeIntType<Int8>(icolumn, vec_to);
-            else if (which.isEnum16()) executeIntType<Int16>(icolumn, vec_to);
-            else if (which.isDate()) executeIntType<UInt16>(icolumn, vec_to);
-            else if (which.isDateTime()) executeIntType<UInt32>(icolumn, vec_to);
-            else if (which.isFloat32()) executeIntType<Float32>(icolumn, vec_to);
-            else if (which.isFloat64()) executeIntType<Float64>(icolumn, vec_to);
-            else if (which.isString()) executeString(icolumn, vec_to);
-            else if (which.isFixedString()) executeString(icolumn, vec_to);
-            else
-                throw Exception("Unexpected type " + from_type->getName() + " of argument of function " + getName(),
-                                ErrorCodes::ILLEGAL_TYPE_OF_ARGUMENT);
-        }
-
-        void executeForArgument(const IDataType * type, const IColumn * column, ColumnVector<UInt64>::Container  & vec_to)
-        {
-            executeAny(type, column, vec_to);
         }
     };
 }
+
