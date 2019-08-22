@@ -51,7 +51,8 @@ namespace DB
             auto create_result_type = [&](size_t max_argument_bytes)
             {
                 fold_size = max_argument_bytes * 6;
-                size_t n_char = (fold_size * arguments_type.size() + 7 ) / 8;
+                arguments_size = arguments_type.size();
+                size_t n_char = (fold_size * arguments_size + 7 ) / 8;
                 return std::make_shared<DataTypeFixedString>(n_char);
             };
 
@@ -151,6 +152,7 @@ namespace DB
 
     private:
         mutable size_t fold_size;
+        mutable size_t arguments_size;
         
         template <typename FromType>
         void executeForInt(size_t input_rows_count, size_t fixed_char_pre_row, ColumnFixedString::Chars & vec_to,
@@ -175,9 +177,11 @@ namespace DB
                             calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
                         }
 
-                        auto is_less_mid = UInt8( calc_value < max_for_type >> (j + 1));
-                        vec_to[(argument_position * j) / 8 + fixed_char_pre_row * row] |= is_less_mid << ((argument_position * j) % 8);
+                        auto is_gt_mid = UInt8(calc_value >= max_for_type >> (j + 1));
+                        size_t bit_pos = argument_position * ( j - 1 ) + (arguments_size - argument_position);
+                        vec_to[bit_pos / 8 + fixed_char_pre_row * row] |= is_gt_mid << (bit_pos % 8);
                     }
+
                 }
             }
             else if (const auto col_from_const = checkAndGetColumnConst<const ColumnVector<FromType>>(&*arg.column))
@@ -194,8 +198,9 @@ namespace DB
                 {
                     for (size_t j = 0; j < fold_size; ++j)
                     {
-                        auto is_less_mid = UInt8( calc_value < max_for_type >> (j + 1));
-                        vec_to[(argument_position * j) / 8 + fixed_char_pre_row * row] |= is_less_mid << ((argument_position * j) % 8);
+                        auto is_gt_mid = UInt8(calc_value >= max_for_type >> (j + 1));
+                        size_t bit_pos = argument_position * ( j - 1 ) + (arguments_size - argument_position);
+                        vec_to[bit_pos / 8 + fixed_char_pre_row * row] |= is_gt_mid << (bit_pos % 8);
                     }
                 }
             }
