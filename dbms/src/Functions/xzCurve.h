@@ -33,9 +33,9 @@ namespace DB
             return "xzCurve";
         }
 
-        static FunctionPtr create(const Context & context)
+        static FunctionPtr create(const Context & /*context*/)
         {
-            return std::make_shared<FunctionXZCurveBase>(context);
+            return std::make_shared<FunctionXZCurve>();
         }
 
         bool isVariadic() const override { return true; }
