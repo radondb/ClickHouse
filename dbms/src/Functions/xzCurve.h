@@ -157,24 +157,46 @@ namespace DB
                            size_t argument_position, const ColumnWithTypeAndName &arg) const {
             
             size_t max_for_type = ext::bit_cast<UInt32, FromType>(std::numeric_limits<FromType>::max());
-            const auto & column_from = static_cast<const ColumnVector<FromType> &>(*arg.column);
-            const typename ColumnVector<FromType>::Container & vec_from = column_from.getData();
-            
-            for (size_t row = 0; row < input_rows_count; ++row)
-            {
-                for (size_t j = 0; j < fold_size; ++j)
-                {
-                    UInt32 calc_value;
-                    if constexpr (!std::is_same_v<FromType, UInt64> && !std::is_same_v<FromType, Int64> && !std::is_same_v<FromType, Float64>)
-                        calc_value = ext::bit_cast<UInt32, FromType>(vec_from[row]);
-                    else
-                    {
-                        UInt64 from_value = ext::bit_cast<UInt64, FromType>(vec_from[row]);
-                        calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
-                    }
 
-                    auto is_less_mid = UInt8( calc_value < max_for_type >> (j + 1));
-                    vec_to[(argument_position * j) / 8 + fixed_char_pre_row * row] |= is_less_mid << ((argument_position * j) % 8);
+            if (const auto column_from = static_cast<const ColumnVector<FromType> *>(&*arg.column))
+            {
+                const typename ColumnVector<FromType>::Container & vec_from = column_from->getData();
+
+                for (size_t row = 0; row < input_rows_count; ++row)
+                {
+                    for (size_t j = 0; j < fold_size; ++j)
+                    {
+                        UInt32 calc_value;
+                        if constexpr (!std::is_same_v<FromType, UInt64> && !std::is_same_v<FromType, Int64> && !std::is_same_v<FromType, Float64>)
+                            calc_value = ext::bit_cast<UInt32, FromType>(vec_from[row]);
+                        else
+                        {
+                            UInt64 from_value = ext::bit_cast<UInt64, FromType>(vec_from[row]);
+                            calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
+                        }
+
+                        auto is_less_mid = UInt8( calc_value < max_for_type >> (j + 1));
+                        vec_to[(argument_position * j) / 8 + fixed_char_pre_row * row] |= is_less_mid << ((argument_position * j) % 8);
+                    }
+                }
+            }
+            else if (const auto col_from_const = checkAndGetColumnConst<const ColumnVector<FromType>>(&*arg.column))
+            {
+                UInt32 calc_value;
+                if constexpr (!std::is_same_v<FromType, UInt64> && !std::is_same_v<FromType, Int64> && !std::is_same_v<FromType, Float64>)
+                    calc_value = ext::bit_cast<UInt32, FromType>(col_from_const->template getValue<FromType>());
+                else
+                {
+                    UInt64 from_value = ext::bit_cast<UInt64, FromType>(col_from_const->template getValue<FromType>());
+                    calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
+                }
+                for (size_t row = 0; row < input_rows_count; ++row)
+                {
+                    for (size_t j = 0; j < fold_size; ++j)
+                    {
+                        auto is_less_mid = UInt8( calc_value < max_for_type >> (j + 1));
+                        vec_to[(argument_position * j) / 8 + fixed_char_pre_row * row] |= is_less_mid << ((argument_position * j) % 8);
+                    }
                 }
             }
         }
