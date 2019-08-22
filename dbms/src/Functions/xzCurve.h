@@ -29,8 +29,10 @@ namespace DB
     class FunctionXZCurve : public IFunction
     {
     public:
+        static constexpr auto name = "xzCurve";
+
         String getName() const override {
-            return "xzCurve";
+            return name;
         }
 
         static FunctionPtr create(const Context & /*context*/)
