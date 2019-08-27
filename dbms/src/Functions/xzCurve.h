@@ -7,8 +7,6 @@
 #include <DataTypes/DataTypeFixedString.h>
 #include <Columns/ColumnTuple.h>
 #include <Columns/ColumnFixedString.h>
-#include <Columns/ColumnString.h>
-#include <Common/HashTable/Hash.h>
 #include <iostream>
 #include <Core/iostream_debug_helpers.h>
 #include <Columns/ColumnsNumber.h>
@@ -41,12 +39,13 @@ namespace DB
         }
 
         bool isVariadic() const override { return true; }
+        bool useDefaultImplementationForConstants() const override { return true; }
         size_t getNumberOfArguments() const override { return 0; }
 
         DataTypePtr getReturnTypeImpl(const DataTypes & arguments_type) const override
         {
-            if (arguments_type.size() > 64)
-                throw Exception("Function " + getName() + " arguments size must less than 64.", ErrorCodes::BAD_ARGUMENTS);
+            if (arguments_type.empty() || arguments_type.size() > 64)
+                throw Exception("Function " + getName() + " arguments range from 1 to 64", ErrorCodes::BAD_ARGUMENTS);
 
             auto create_result_type = [&](size_t max_argument_bytes)
             {
@@ -61,9 +60,7 @@ namespace DB
             {
                 WhichDataType which(argument_type);
 
-                if (which.isStringOrFixedString())
-                    return create_result_type(sizeof(UInt32));
-                else if (which.isInt() || which.isUInt() || which.isDateOrDateTime() || which.isFloat())
+                if (which.isInt() || which.isUInt() || which.isDateOrDateTime() || which.isFloat() || which.isEnum())
                     max_argument_bytes = std::max(max_argument_bytes, std::min(sizeof(UInt32), argument_type->getSizeOfValueInMemory()));
                 else
                     throw Exception("Function " + getName()
@@ -90,64 +87,34 @@ namespace DB
             for (size_t i = 0; i < number_of_elements; ++i)
             {
                 const auto & arg = block.getByPosition(arguments[i]);
-                executeforargument(input_rows_count, fixed_char_pre_row, vec_to, i, arg);
+                executeArgument(arg.type.get(), arg.column.get(), vec_to, i, fixed_char_pre_row);
             }
             block.getByPosition(result).column = std::move(column_to);
         }
 
-        void executeforargument(size_t input_rows_count, size_t fixed_char_pre_row, ColumnFixedString::Chars & vec_to, size_t argument_position,
-                                const ColumnWithTypeAndName & arg) const {
-            WhichDataType whichdatatype(arg.type);
+        void executeArgument(
+                const IDataType * type, const IColumn * column,
+                ColumnFixedString::Chars & vec_to, size_t argument_position, size_t fixed_char_pre_row) const {
 
-            if (whichdatatype.isUInt8())
-            {
-                executeForInt<UInt8>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isUInt16())
-            {
-                executeForInt<UInt16>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isUInt32())
-            {
-                executeForInt<UInt32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isUInt64())
-            {
-                executeForInt<UInt64>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isInt8())
-            {
-                executeForInt<Int8>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isInt16())
-            {
-                executeForInt<Int16>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isInt32())
-            {
-                executeForInt<Int32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isInt64())
-            {
-                executeForInt<Int64>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isFloat32())
-            {
-                executeForInt<Float32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isFloat64())
-            {
-                executeForInt<Float64>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isDate())
-            {
-                executeForInt<UInt16>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
-            else if (whichdatatype.isDateTime())
-            {
-                executeForInt<UInt32>(input_rows_count, fixed_char_pre_row, vec_to, argument_position, arg);
-            }
+            WhichDataType which(type);
 
+            if (which.isUInt8()) executeForInt<UInt8>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isUInt16()) executeForInt<UInt16>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isUInt32()) executeForInt<UInt32>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isUInt64()) executeForInt<UInt64>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isInt8()) executeForInt<Int8>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isInt16()) executeForInt<Int16>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isInt32()) executeForInt<Int32>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isInt64()) executeForInt<Int64>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isEnum8()) executeForInt<Int8>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isEnum16()) executeForInt<Int16>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isDate()) executeForInt<UInt16>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isDateTime()) executeForInt<UInt32>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isFloat32()) executeForInt<Float32>(column, vec_to, argument_position, fixed_char_pre_row);
+            else if (which.isFloat64()) executeForInt<Float64>(column, vec_to, argument_position, fixed_char_pre_row);
+            else
+                throw Exception("Unexpected type " + type->getName() + " of argument of function " + getName(),
+                                ErrorCodes::ILLEGAL_TYPE_OF_ARGUMENT);
         }
 
     private:
@@ -155,36 +122,49 @@ namespace DB
         mutable size_t arguments_size;
         
         template <typename FromType>
-        void executeForInt(size_t input_rows_count, size_t fixed_char_pre_row, ColumnFixedString::Chars & vec_to,
-                           size_t argument_position, const ColumnWithTypeAndName &arg) const {
+        void executeForInt(
+                const IColumn * column, ColumnFixedString::Chars & vec_to,
+                size_t argument_position, size_t fixed_char_pre_row) const {
             
             size_t max_for_type = ext::bit_cast<UInt32, FromType>(std::numeric_limits<FromType>::max());
+            std::cout << "debug: max_for_type: " << max_for_type << "\n";
 
-            if (const auto column_from = static_cast<const ColumnVector<FromType> *>(&*arg.column))
+            if (const auto column_from = static_cast<const ColumnVector<FromType> *>(column))
             {
                 const typename ColumnVector<FromType>::Container & vec_from = column_from->getData();
 
-                for (size_t row = 0; row < input_rows_count; ++row)
+                for (size_t row = 0; row < vec_from.size(); ++row)
                 {
                     for (size_t j = 0; j < fold_size; ++j)
                     {
                         UInt32 calc_value;
                         if constexpr (!std::is_same_v<FromType, UInt64> && !std::is_same_v<FromType, Int64> && !std::is_same_v<FromType, Float64>)
+                        {
                             calc_value = ext::bit_cast<UInt32, FromType>(vec_from[row]);
+                            std::cout << "if : debug: calc_value " << calc_value << "\n";
+                        }
                         else
                         {
                             UInt64 from_value = ext::bit_cast<UInt64, FromType>(vec_from[row]);
                             calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
+                            std::cout << "else :debug: calc_value " << calc_value << "\n";
                         }
 
-                        auto is_gt_mid = UInt8(calc_value >= max_for_type >> (j + 1));
+                        auto is_gt_mid = UInt8(calc_value >= (max_for_type >> (j + 1)));
+                        std::cout << "debug: max_for_type >> (j+1)" << (max_for_type >> (j + 1)) << "\n";
+                        std::cout << "debug: is_gt_mid: " << int(is_gt_mid) <<"\n";
                         size_t bit_pos = argument_position * ( j - 1 ) + (arguments_size - argument_position);
+                        std::cout << "debug: argument_position is " << int(argument_position)
+                                    << " arguments_size is " << int(arguments_size)
+                                    << " j is " << int(j) << "\n";
+                        std::cout << "debug: bit_pos: " << int(bit_pos) <<"\n";
                         vec_to[bit_pos / 8 + fixed_char_pre_row * row] |= is_gt_mid << (bit_pos % 8);
+                        std::cout << "debug: vec_to[bit_pos / 8 + fixed_char_pre_row * row]: " << int(vec_to[bit_pos / 8 + fixed_char_pre_row * row]) <<"\n";
                     }
 
                 }
             }
-            else if (const auto col_from_const = checkAndGetColumnConst<const ColumnVector<FromType>>(&*arg.column))
+            else if (const auto col_from_const = checkAndGetColumnConst<const ColumnVector<FromType>>(&*column))
             {
                 UInt32 calc_value;
                 if constexpr (!std::is_same_v<FromType, UInt64> && !std::is_same_v<FromType, Int64> && !std::is_same_v<FromType, Float64>)
@@ -194,11 +174,11 @@ namespace DB
                     UInt64 from_value = ext::bit_cast<UInt64, FromType>(col_from_const->template getValue<FromType>());
                     calc_value = UInt32(from_value >> 32) ^ UInt32(from_value & 0xffffffff);
                 }
-                for (size_t row = 0; row < input_rows_count; ++row)
+                for (size_t row = 0; row < col_from_const->size(); ++row)
                 {
                     for (size_t j = 0; j < fold_size; ++j)
                     {
-                        auto is_gt_mid = UInt8(calc_value >= max_for_type >> (j + 1));
+                        auto is_gt_mid = UInt8(calc_value >= (max_for_type >> (j + 1)));
                         size_t bit_pos = argument_position * ( j - 1 ) + (arguments_size - argument_position);
                         vec_to[bit_pos / 8 + fixed_char_pre_row * row] |= is_gt_mid << (bit_pos % 8);
                     }
