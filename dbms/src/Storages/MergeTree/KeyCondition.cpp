@@ -258,6 +258,15 @@ const KeyCondition::AtomMap KeyCondition::atom_map
 
             return true;
         }
+    },
+    {
+        "xz",
+        [] (RPNElement & out, const Field & value)
+        {
+            out.function = RPNElement::XZ;
+            out.range = Range(value);
+            return true;
+        }
     }
 };
 
@@ -651,6 +660,113 @@ bool KeyCondition::isKeyPossiblyWrappedByMonotonicFunctionsImpl(
     return false;
 }
 
+bool KeyCondition::isKeyOnlyWrappedByXZFunction(const ASTPtr &node, size_t &out_key_column_num,
+                                                DataTypePtr &out_key_res_column_type,
+                                                MonotonicFunctionsChain &out_function_chain,
+                                                FunctionArgumentStack &out_function_argument_stack)
+{
+    MonotonicFunctionsChain xz_chain;
+    DataTypePtr key_column_type;
+
+    if (!isKeyOnlyWrappedByXZFunctionImpl(node, out_key_column_num, key_column_type, xz_chain,
+                                          out_function_argument_stack))
+        return false;
+
+
+    out_function_chain = std::move(xz_chain);
+    out_key_res_column_type = key_column_type;
+    return true;
+}
+
+bool KeyCondition::isColumnPossiblyAnArgumentOfXZFunctionInKeyExpr(
+        const String & name,
+        size_t & out_key_column_num,
+        DataTypePtr & out_key_column_type,
+        MonotonicFunctionsChain & out_function_chain,
+        FunctionArgumentStack & out_function_argument_stack)
+{
+    MonotonicFunctionsChain xz_chain;
+    FunctionArgumentStack argument_stack;
+
+    if (!isColumnPossiblyAnArgumentOfXZFunctionInKeyExprImpl(name, out_key_column_num, out_key_column_type, xz_chain, argument_stack))
+        return false;
+
+    out_function_chain = std::move(xz_chain);
+    out_function_argument_stack = std::move(argument_stack);
+    return true;
+}
+
+bool KeyCondition::isColumnPossiblyAnArgumentOfXZFunctionInKeyExprImpl(
+        const String & name,
+        size_t & out_key_column_num,
+        DataTypePtr & out_key_column_type,
+        MonotonicFunctionsChain & out_function_chain,
+        FunctionArgumentStack & out_function_argument_stack)
+{
+    String expr_name = name;
+    const auto & sample_block = key_expr->getSampleBlock();
+    DataTypePtr type;
+
+    if (sample_block.has(expr_name))
+    {
+        type = sample_block.getByName(expr_name).type;
+    }
+
+    for (const ExpressionAction & action : key_expr->getActions())
+    {
+        const auto & args = action.argument_names;
+
+        if (action.type == ExpressionAction::Type::APPLY_FUNCTION && action.function_base->isXZFunction())
+        {
+            auto arg_it = find(args.begin(), args.end(), expr_name);
+            if (arg_it != args.end())
+            {
+                size_t index = static_cast<size_t>(arg_it - args.begin());
+                out_function_argument_stack.push_back(index);
+                out_function_chain.push_back(action.function_base);
+
+                expr_name = action.result_name;
+                auto key_it = key_columns.find(expr_name);
+                if (key_it != key_columns.end())
+                {
+                    out_key_column_num = key_it->second;
+                    out_key_column_type = type;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool KeyCondition::isKeyOnlyWrappedByXZFunctionImpl(const ASTPtr &node, size_t &out_key_column_num,
+                                                    DataTypePtr &out_key_column_type,
+                                                    MonotonicFunctionsChain &out_functions_chain,
+                                                    FunctionArgumentStack &out_function_argument_stack)
+{
+
+    /** By itself, the key column can be a functional expression. for example, `intHash32(UserID)`.
+  * Therefore, use the full name of the expression for search.
+  */
+    const auto & sample_block = key_expr->getSampleBlock();
+    String name = node->getColumnName();
+    auto it = key_columns.find(name);
+
+    if (key_columns.end() != it)
+    {
+        out_key_column_num = it->second;
+        out_key_column_type = sample_block.getByName(it->first).type;
+        return true;
+    }
+    // TODO 循环 order by ，是否有 xz ，没有 return false ，
+    // 有，循环 xz 看是否有 这个列，没有 return False。
+    // 遍历 xz_chain 解是否是 xzfunction
+    if (isColumnPossiblyAnArgumentOfXZFunctionInKeyExpr(name, out_key_column_num, out_key_column_type, out_functions_chain, out_function_argument_stack))
+        return true;
+
+    return false;
+}
+
 
 static void castValueToType(const DataTypePtr & desired_type, Field & src_value, const DataTypePtr & src_type, const ASTPtr & node)
 {
@@ -688,6 +804,7 @@ bool KeyCondition::atomFromAST(const ASTPtr & node, const Context & context, Blo
         size_t key_column_num = -1;   /// Number of a key column (inside key_column_names array)
         MonotonicFunctionsChain chain;
         std::string func_name = func->name;
+        FunctionArgumentStack argument_stack;
 
         if (atom_map.find(func_name) == std::end(atom_map))
             return false;
@@ -705,6 +822,7 @@ bool KeyCondition::atomFromAST(const ASTPtr & node, const Context & context, Blo
             size_t key_arg_pos;           /// Position of argument with key column (non-const argument)
             bool is_set_const = false;
             bool is_constant_transformed = false;
+
 
             if (functionIsInOrGlobalInOperator(func_name)
                 && tryPrepareSetIndex(args, context, out, key_column_num))
@@ -733,6 +851,13 @@ bool KeyCondition::atomFromAST(const ASTPtr & node, const Context & context, Blo
             {
                 key_arg_pos = 1;
                 is_constant_transformed = true;
+            }
+            else if (func_name == "equals"
+                     && getConstant(args[0], block_with_constants, const_value, const_type)
+                     && isKeyOnlyWrappedByXZFunction(args[0], key_column_num, key_expr_type, chain, argument_stack))
+            {
+                key_arg_pos = 0;
+                func_name = "xz";
             }
             else
                 return false;

@@ -11,6 +11,7 @@
 #include <Parsers/ASTSelectQuery.h>
 #include <Parsers/ASTFunction.h>
 #include <Storages/SelectQueryInfo.h>
+#include <Databases/IDatabase.h>
 
 
 namespace DB
@@ -265,6 +266,7 @@ public:
       * (for example: -toFloat64(toDayOfWeek(date))), then here the functions will be located: toDayOfWeek, toFloat64, negate.
       */
     using MonotonicFunctionsChain = std::vector<FunctionBasePtr>;
+    using FunctionArgumentStack = std::vector<size_t>;
 
     /** Computes value of constant expression and its data type.
       * Returns false, if expression isn't constant.
@@ -299,6 +301,8 @@ private:
             /// Constants
             ALWAYS_FALSE,
             ALWAYS_TRUE,
+            // Special case
+            XZ,
         };
 
         RPNElement() {}
@@ -359,6 +363,28 @@ private:
         size_t & out_key_column_num,
         DataTypePtr & out_key_column_type,
         std::vector<const ASTFunction *> & out_functions_chain);
+
+    bool isColumnPossiblyAnArgumentOfXZFunctionInKeyExpr(
+            const String & name,
+            size_t & out_key_column_num,
+            DataTypePtr & out_key_column_type,
+            MonotonicFunctionsChain & out_function_chain,
+            FunctionArgumentStack & out_function_argument_stack);
+
+    bool isColumnPossiblyAnArgumentOfXZFunctionInKeyExprImpl(
+            const String & name,
+            size_t & out_key_column_num,
+            DataTypePtr & out_key_column_type,
+            MonotonicFunctionsChain & out_function_chain,
+            FunctionArgumentStack & out_function_argument_stack);
+
+    bool isKeyOnlyWrappedByXZFunction(const ASTPtr &node, size_t &out_key_column_num, DataTypePtr &out_key_res_column_type,
+                                 MonotonicFunctionsChain &out_function_chain,
+                                 FunctionArgumentStack &out_function_argument_stack);
+
+    bool isKeyOnlyWrappedByXZFunctionImpl(const ASTPtr &node, size_t &out_key_column_num, DataTypePtr &out_key_column_type,
+                                     MonotonicFunctionsChain &out_functions_chain,
+                                     FunctionArgumentStack &out_function_argument_stack);
 
     bool canConstantBeWrappedByMonotonicFunctions(
         const ASTPtr & node,

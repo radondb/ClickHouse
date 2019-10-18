@@ -73,6 +73,16 @@ namespace DB
             return create_result_type(max_argument_bytes);
         }
 
+        bool isXZFunction() const override
+        {
+            return true;
+        }
+
+        bool XZRange() const override
+        {
+            return true;
+        }
+
         void executeImpl(Block & block, const ColumnNumbers & arguments, size_t result, size_t input_rows_count) override
         {
             size_t number_of_elements = arguments.size();

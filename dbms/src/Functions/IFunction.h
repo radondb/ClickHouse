@@ -219,6 +219,10 @@ public:
     {
         throw Exception("Function " + getName() + " has no information about its monotonicity.", ErrorCodes::NOT_IMPLEMENTED);
     }
+
+    virtual bool isXZFunction() const { return false; }
+    // TODO
+    virtual bool XZRange() const { return false; }
 };
 
 using FunctionBasePtr = std::shared_ptr<IFunctionBase>;
@@ -469,6 +473,8 @@ public:
     {
         return function->getMonotonicityForRange(type, left, right);
     }
+
+    bool isXZFunction() const override { return  function->isXZFunction(); }
 private:
     std::shared_ptr<IFunction> function;
     DataTypes arguments;
