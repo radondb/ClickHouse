@@ -48,7 +48,7 @@ BlockIO InterpreterCreateRowPolicyQuery::execute()
     auto & query = query_ptr->as<ASTCreateRowPolicyQuery &>();
     auto required_access = getRequiredAccess();
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
     {
         query.replaceCurrentUserTag(getContext()->getUserName());
         return executeDDLQueryOnCluster(query_ptr, getContext(), required_access);

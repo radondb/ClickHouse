@@ -66,7 +66,7 @@ BlockIO InterpreterAlterQuery::executeToTable(const ASTAlterQuery & alter)
 {
     BlockIO res;
 
-    if (!alter.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
         return executeDDLQueryOnCluster(query_ptr, getContext(), getRequiredAccess());
 
     getContext()->checkAccess(getRequiredAccess());

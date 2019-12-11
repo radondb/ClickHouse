@@ -48,7 +48,7 @@ BlockIO InterpreterCreateSettingsProfileQuery::execute()
     else
         getContext()->checkAccess(AccessType::CREATE_SETTINGS_PROFILE);
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
     {
         query.replaceCurrentUserTag(getContext()->getUserName());
         return executeDDLQueryOnCluster(query_ptr, getContext());

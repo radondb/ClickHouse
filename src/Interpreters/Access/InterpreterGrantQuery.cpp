@@ -397,7 +397,7 @@ BlockIO InterpreterGrantQuery::execute()
     collectRolesToGrantOrRevoke(access_control, query, roles_to_grant, roles_to_revoke);
 
     /// Executing on cluster.
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
     {
         auto required_access = getRequiredAccessForExecutingOnCluster(elements_to_grant, elements_to_revoke);
         checkAdminOptionForExecutingOnCluster(*current_user_access, roles_to_grant, roles_to_revoke);

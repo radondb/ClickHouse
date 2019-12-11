@@ -1447,7 +1447,7 @@ BlockIO InterpreterCreateQuery::execute()
 {
     FunctionNameNormalizer().visit(query_ptr.get());
     auto & create = query_ptr->as<ASTCreateQuery &>();
-    if (!create.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
     {
         prepareOnClusterQuery(create, getContext(), create.cluster);
         return executeDDLQueryOnCluster(query_ptr, getContext(), getRequiredAccess());

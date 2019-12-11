@@ -214,6 +214,8 @@ private:
     StorageID insertion_table = StorageID::createEmpty();  /// Saved insertion table in query context
     bool is_distributed = false;  /// Whether the current context it used for distributed query
 
+    String default_on_cluster;
+
     String default_format;  /// Format, used when server formats data by itself and if query does not have FORMAT specification.
                             /// Thus, used in HTTP interface. If not specified - then some globally default format is used.
     TemporaryTablesMapping external_tables_mapping;
@@ -534,6 +536,9 @@ public:
 
     String getDefaultFormat() const;    /// If default_format is not specified, some global default format is returned.
     void setDefaultFormat(const String & name);
+
+    String getDefaultOnCluster() const;
+    void setDefaultOnCluster(const String & cluster_name);
 
     MultiVersion<Macros>::Version getMacros() const;
     void setMacros(std::unique_ptr<Macros> && macros);

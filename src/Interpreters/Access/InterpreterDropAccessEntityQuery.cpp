@@ -21,7 +21,7 @@ BlockIO InterpreterDropAccessEntityQuery::execute()
     auto & access_control = getContext()->getAccessControl();
     getContext()->checkAccess(getRequiredAccess());
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
         return executeDDLQueryOnCluster(query_ptr, getContext());
 
     query.replaceEmptyDatabase(getContext()->getCurrentDatabase());
