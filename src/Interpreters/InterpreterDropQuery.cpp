@@ -47,7 +47,7 @@ InterpreterDropQuery::InterpreterDropQuery(const ASTPtr & query_ptr_, Context & 
 BlockIO InterpreterDropQuery::execute()
 {
     auto & drop = query_ptr->as<ASTDropQuery &>();
-    if (!drop.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccessForDDLOnCluster());
 
     if (context.getSettingsRef().database_atomic_wait_for_drop_and_detach_synchronously)

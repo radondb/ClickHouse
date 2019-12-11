@@ -28,7 +28,7 @@ BlockIO InterpreterDropAccessEntityQuery::execute()
     auto & access_control = context.getAccessControlManager();
     context.checkAccess(getRequiredAccess());
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context);
 
     query.replaceEmptyDatabaseWithCurrent(context.getCurrentDatabase());

@@ -38,7 +38,7 @@ BlockIO InterpreterAlterQuery::execute()
     BlockIO res;
     const auto & alter = query_ptr->as<ASTAlterQuery &>();
 
-    if (!alter.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccess());
 
     context.checkAccess(getRequiredAccess());

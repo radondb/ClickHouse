@@ -525,6 +525,7 @@ int Server::main(const std::vector<std::string> & /*args*/)
 
     std::string path = getCanonicalPath(config().getString("path", DBMS_DEFAULT_PATH));
     std::string default_database = config().getString("default_database", "default");
+    std::string default_on_cluster_name = config().getString("default_on_cluster_name", "");
 
     /// Check that the process user id matches the owner of the data.
     const auto effective_user_id = geteuid();
@@ -900,6 +901,7 @@ int Server::main(const std::vector<std::string> & /*args*/)
     /// Set current database name before loading tables and databases because
     /// system logs may copy global context.
     global_context->setCurrentDatabaseNameInGlobalContext(default_database);
+    global_context->setDefaultOnCluster(default_on_cluster_name);
 
     LOG_INFO(log, "Loading metadata from {}", path);
 

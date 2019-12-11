@@ -24,7 +24,7 @@ BlockIO InterpreterOptimizeQuery::execute()
 {
     const auto & ast = query_ptr->as<ASTOptimizeQuery &>();
 
-    if (!ast.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccess());
 
     context.checkAccess(getRequiredAccess());

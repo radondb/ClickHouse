@@ -79,7 +79,7 @@ BlockIO InterpreterGrantQuery::execute()
     auto & query = query_ptr->as<ASTGrantQuery &>();
     query.replaceCurrentUserTagWithName(context.getUserName());
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context, query.access_rights_elements, true);
 
     auto access = context.getAccess();
