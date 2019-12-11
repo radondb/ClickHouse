@@ -114,7 +114,7 @@ BlockIO InterpreterCreateUserQuery::execute()
                 access->checkAdminOption(role);
         }
     }
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
         return executeDDLQueryOnCluster(query_ptr, getContext());
     std::optional<SettingsProfileElements> settings_from_query;
     if (query.settings)

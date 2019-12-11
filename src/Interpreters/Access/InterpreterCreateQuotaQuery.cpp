@@ -80,7 +80,7 @@ BlockIO InterpreterCreateQuotaQuery::execute()
     auto & access_control = getContext()->getAccessControl();
     getContext()->checkAccess(query.alter ? AccessType::ALTER_QUOTA : AccessType::CREATE_QUOTA);
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
     {
         query.replaceCurrentUserTag(getContext()->getUserName());
         return executeDDLQueryOnCluster(query_ptr, getContext());

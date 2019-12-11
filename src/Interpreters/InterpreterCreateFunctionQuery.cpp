@@ -33,7 +33,7 @@ BlockIO InterpreterCreateFunctionQuery::execute()
     if (create_function_query.or_replace)
         access_rights_elements.emplace_back(AccessType::DROP_FUNCTION);
 
-    if (!create_function_query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, getContext()))
         return executeDDLQueryOnCluster(query_ptr, getContext(), access_rights_elements);
 
     auto current_context = getContext();

@@ -712,6 +712,7 @@ if (ThreadFuzzer::instance().isEffective())
     std::string path_str = getCanonicalPath(config().getString("path", DBMS_DEFAULT_PATH));
     fs::path path = path_str;
     std::string default_database = config().getString("default_database", "default");
+    std::string default_on_cluster_name = config().getString("default_on_cluster_name", "");
 
     /// Check that the process user id matches the owner of the data.
     const auto effective_user_id = geteuid();
@@ -1235,6 +1236,7 @@ if (ThreadFuzzer::instance().isEffective())
     /// Set current database name before loading tables and databases because
     /// system logs may copy global context.
     global_context->setCurrentDatabaseNameInGlobalContext(default_database);
+    global_context->setDefaultOnCluster(default_on_cluster_name);
 
     LOG_INFO(log, "Loading user defined objects from {}", path_str);
     try
