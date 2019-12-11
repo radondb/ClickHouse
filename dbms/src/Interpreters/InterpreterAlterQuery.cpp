@@ -37,8 +37,13 @@ BlockIO InterpreterAlterQuery::execute()
 {
     const auto & alter = query_ptr->as<ASTAlterQuery &>();
 
+<<<<<<< HEAD
     if (!alter.cluster.empty())
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccess());
+=======
+    if (isExecutionOnCluster(query_ptr, context))
+        return executeDDLQueryOnCluster(query_ptr, context, {alter.database});
+>>>>>>> e66e2be9fc... add default on cluster name
 
     context.checkAccess(getRequiredAccess());
     auto table_id = context.resolveStorageID(alter, Context::ResolveOrdinary);

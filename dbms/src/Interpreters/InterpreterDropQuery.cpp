@@ -38,8 +38,16 @@ InterpreterDropQuery::InterpreterDropQuery(const ASTPtr & query_ptr_, Context & 
 BlockIO InterpreterDropQuery::execute()
 {
     auto & drop = query_ptr->as<ASTDropQuery &>();
+<<<<<<< HEAD
     if (!drop.cluster.empty())
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccessForDDLOnCluster());
+=======
+
+    checkAccess(drop);
+
+    if (isExecutionOnCluster(query_ptr, context))
+        return executeDDLQueryOnCluster(query_ptr, context, {drop.database});
+>>>>>>> e66e2be9fc... add default on cluster name
 
     if (!drop.table.empty())
     {

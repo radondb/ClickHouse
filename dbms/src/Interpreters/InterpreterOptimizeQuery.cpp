@@ -19,8 +19,13 @@ BlockIO InterpreterOptimizeQuery::execute()
 {
     const auto & ast = query_ptr->as<ASTOptimizeQuery &>();
 
+<<<<<<< HEAD
     if (!ast.cluster.empty())
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccess());
+=======
+    if (isExecutionOnCluster(query_ptr, context))
+        return executeDDLQueryOnCluster(query_ptr, context, {ast.database});
+>>>>>>> e66e2be9fc... add default on cluster name
 
     context.checkAccess(getRequiredAccess());
 
