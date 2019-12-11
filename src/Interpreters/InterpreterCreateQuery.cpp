@@ -1118,7 +1118,7 @@ void InterpreterCreateQuery::prepareOnClusterQuery(ASTCreateQuery & create, cons
 BlockIO InterpreterCreateQuery::execute()
 {
     auto & create = query_ptr->as<ASTCreateQuery &>();
-    if (!create.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
     {
         prepareOnClusterQuery(create, context, create.cluster);
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccess());

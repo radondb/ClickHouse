@@ -29,6 +29,7 @@ struct DDLLogEntry;
 struct DDLTask;
 using DDLTaskPtr = std::unique_ptr<DDLTask>;
 
+bool isExecutionOnCluster(ASTPtr & query_ptr_, const Context & context);
 
 /// Pushes distributed DDL query to the queue
 BlockIO executeDDLQueryOnCluster(const ASTPtr & query_ptr, const Context & context);

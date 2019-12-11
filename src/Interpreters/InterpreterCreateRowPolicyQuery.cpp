@@ -47,7 +47,7 @@ BlockIO InterpreterCreateRowPolicyQuery::execute()
     auto & access_control = context.getAccessControlManager();
     context.checkAccess(query.alter ? AccessType::ALTER_ROW_POLICY : AccessType::CREATE_ROW_POLICY);
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
     {
         query.replaceCurrentUserTagWithName(context.getUserName());
         return executeDDLQueryOnCluster(query_ptr, context);
