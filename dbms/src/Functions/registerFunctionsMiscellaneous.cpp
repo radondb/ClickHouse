@@ -12,6 +12,7 @@ void registerFunctionFQDN(FunctionFactory &);
 void registerFunctionVisibleWidth(FunctionFactory &);
 void registerFunctionToTypeName(FunctionFactory &);
 void registerFunctionGetSizeOfEnumType(FunctionFactory &);
+void registerFunctionBlockSerializedSize(FunctionFactory &);
 void registerFunctionToColumnTypeName(FunctionFactory &);
 void registerFunctionDumpColumnStructure(FunctionFactory &);
 void registerFunctionDefaultValueOfArgumentType(FunctionFactory &);
@@ -67,6 +68,7 @@ void registerFunctionsMiscellaneous(FunctionFactory & factory)
     registerFunctionVisibleWidth(factory);
     registerFunctionToTypeName(factory);
     registerFunctionGetSizeOfEnumType(factory);
+    registerFunctionBlockSerializedSize(factory);
     registerFunctionToColumnTypeName(factory);
     registerFunctionDumpColumnStructure(factory);
     registerFunctionDefaultValueOfArgumentType(factory);
