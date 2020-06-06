@@ -39,24 +39,10 @@ BlockIO InterpreterRenameQuery::execute()
 {
     const auto & rename = query_ptr->as<const ASTRenameQuery &>();
 
-<<<<<<< HEAD
-    if (!rename.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context, getRequiredAccess());
 
     context.checkAccess(getRequiredAccess());
-=======
-    if (isExecutionOnCluster(query_ptr, context))
-    {
-        NameSet databases;
-        for (const auto & elem : rename.elements)
-        {
-            databases.emplace(elem.from.database);
-            databases.emplace(elem.to.database);
-        }
-
-        return executeDDLQueryOnCluster(query_ptr, context, std::move(databases));
-    }
->>>>>>> e66e2be9fc... add default on cluster name
 
     String path = context.getPath();
     String current_database = context.getCurrentDatabase();

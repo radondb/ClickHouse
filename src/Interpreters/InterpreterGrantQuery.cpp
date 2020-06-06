@@ -74,7 +74,7 @@ BlockIO InterpreterGrantQuery::execute()
             access->checkAdminOption(role_from_query);
     }
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
     {
         query.replaceCurrentUserTagWithName(context.getUserName());
         return executeDDLQueryOnCluster(query_ptr, context);

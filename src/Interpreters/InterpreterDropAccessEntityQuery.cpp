@@ -53,7 +53,7 @@ BlockIO InterpreterDropAccessEntityQuery::execute()
     std::type_index type = getType(query.kind);
     context.checkAccess(getRequiredAccessType(query.kind));
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context);
 
     if (query.kind == Kind::ROW_POLICY)

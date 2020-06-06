@@ -84,7 +84,7 @@ BlockIO InterpreterCreateUserQuery::execute()
         }
     }
 
-    if (!query.cluster.empty())
+    if (isExecutionOnCluster(query_ptr, context))
         return executeDDLQueryOnCluster(query_ptr, context);
 
     std::optional<SettingsProfileElements> settings_from_query;
