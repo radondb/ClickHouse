@@ -81,9 +81,6 @@ InterpreterCreateQuery::InterpreterCreateQuery(const ASTPtr & query_ptr_, Contex
 
 BlockIO InterpreterCreateQuery::createDatabase(ASTCreateQuery & create)
 {
-    if (isExecutionOnCluster(query_ptr, context))
-        return executeDDLQueryOnCluster(query_ptr, context, {create.database});
-
     String database_name = create.database;
 
     auto guard = DatabaseCatalog::instance().getDDLGuard(database_name, "");
@@ -534,16 +531,6 @@ void InterpreterCreateQuery::setEngine(ASTCreateQuery & create) const
 
 BlockIO InterpreterCreateQuery::createTable(ASTCreateQuery & create)
 {
-    if (isExecutionOnCluster(query_ptr, context))
-    {
-        NameSet databases{create.database};
-        if (!create.to_table.empty())
-            databases.emplace(create.to_database);
-
-        return executeDDLQueryOnCluster(query_ptr, context, std::move(databases));
-    }
-
-
     /// Temporary tables are created out of databases.
     if (create.temporary && !create.database.empty())
         throw Exception("Temporary tables cannot be inside a database. You should not specify a database for a temporary table.",

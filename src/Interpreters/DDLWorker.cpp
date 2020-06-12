@@ -361,7 +361,7 @@ bool DDLWorker::initAndCheckTask(const String & entry_name, String & out_reason,
 
             String description;
             ParserQuery parser_query(end);
-            const auto & query = parseQuery(parser_query, begin, end, description, 0);
+            const auto & query = parseQuery(parser_query, begin, end, description, 0, 0);
 
             ASTQueryWithOnCluster * query_on_cluster = nullptr;
             // XXX: serious design flaw since `ASTQueryWithOnCluster` is not inherited from `IAST`!
