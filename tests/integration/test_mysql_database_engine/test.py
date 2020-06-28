@@ -99,6 +99,9 @@ def test_clickhouse_dml_for_mysql_database(started_cluster):
         clickhouse_node.query("INSERT INTO `test_database`.`test_table`(`i\`d`) select number from numbers(10000)")
         assert clickhouse_node.query("SELECT count() FROM `test_database`.`test_table`").rstrip() == '10000'
 
+        clickhouse_node.query("DROP DATABASE test_database")
+        assert 'test_database' not in clickhouse_node.query('SHOW DATABASES')
+
         mysql_node.query("DROP DATABASE test_database")
 
 
