@@ -169,8 +169,6 @@ Pipes MergeTreeDataSelectExecutor::readFromParts(
     const unsigned num_streams,
     const PartitionIdToMaxBlock * max_block_numbers_to_read) const
 {
-    size_t part_index = 0;
-
     /// If query contains restrictions on the virtual column `_part` or `_part_index`, select only parts suitable for it.
     /// The virtual column `_sample_factor` (which is equal to 1 / used sample rate) can be requested in the query.
     Names virt_column_names;
@@ -536,37 +534,75 @@ Pipes MergeTreeDataSelectExecutor::readFromParts(
             useful_indices.emplace_back(index, condition);
     }
 
-    /// Let's find what range to read from each part.
+    RangesInDataParts parts_with_ranges(parts.size());
     size_t sum_marks = 0;
     size_t sum_ranges = 0;
-    for (auto & part : parts)
+
+    /// Let's find what range to read from each part.
     {
-        RangesInDataPart ranges(part, part_index++);
-
-        if (data.hasPrimaryKey())
-            ranges.ranges = markRangesFromPKRange(part, key_condition, settings);
-        else
+        auto process_part = [&](size_t part_index)
         {
-            size_t total_marks_count = part->getMarksCount();
-            if (total_marks_count)
-            {
-                if (part->index_granularity.hasFinalMark())
-                    --total_marks_count;
-                ranges.ranges = MarkRanges{MarkRange{0, total_marks_count}};
-            }
-        }
+            auto & part = parts[part_index];
 
-        for (const auto & index_and_condition : useful_indices)
-            ranges.ranges = filterMarksUsingIndex(
+            RangesInDataPart ranges(part, part_index);
+
+            if (data.hasPrimaryKey())
+                ranges.ranges = markRangesFromPKRange(part, key_condition, settings);
+            else
+            {
+                size_t total_marks_count = part->getMarksCount();
+                if (total_marks_count)
+                {
+                    if (part->index_granularity.hasFinalMark())
+                        --total_marks_count;
+                    ranges.ranges = MarkRanges{MarkRange{0, total_marks_count}};
+                }
+            }
+
+            for (const auto & index_and_condition : useful_indices)
+                ranges.ranges = filterMarksUsingIndex(
                     index_and_condition.first, index_and_condition.second, part, ranges.ranges, settings);
 
-        if (!ranges.ranges.empty())
-        {
-            parts_with_ranges.push_back(ranges);
+            if (!ranges.ranges.empty())
+                parts_with_ranges[part_index] = std::move(ranges);
+        };
 
-            sum_ranges += ranges.ranges.size();
-            sum_marks += ranges.getMarksCount();
+        size_t num_threads = std::min(size_t(num_streams), parts.size());
+
+        if (num_threads <= 1)
+        {
+            for (size_t part_index = 0; part_index < parts.size(); ++part_index)
+                process_part(part_index);
         }
+        else
+        {
+            /// Parallel loading of data parts.
+            ThreadPool pool(num_threads);
+
+            for (size_t part_index = 0; part_index < parts.size(); ++part_index)
+                pool.scheduleOrThrowOnError([&, part_index] { process_part(part_index); });
+
+            pool.wait();
+        }
+
+        /// Skip empty ranges.
+        size_t next_part = 0;
+        for (size_t part_index = 0; part_index < parts.size(); ++part_index)
+        {
+            auto & part = parts_with_ranges[part_index];
+            if (!part.data_part)
+                continue;
+
+            sum_ranges += part.ranges.size();
+            sum_marks += part.getMarksCount();
+
+            if (next_part != part_index)
+                std::swap(parts_with_ranges[next_part], part);
+
+            ++next_part;
+        }
+
+        parts_with_ranges.resize(next_part);
     }
 
     LOG_DEBUG(log, "Selected " << parts.size() << " parts by date, " << parts_with_ranges.size() << " parts by key, "
