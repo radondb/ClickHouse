@@ -1339,7 +1339,7 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingIndex(
 {
     if (!Poco::File(part->getFullPath() + index->getFileName() + ".idx").exists())
     {
-        LOG_DEBUG(log, "File for index " << backQuote(index->name) << " does not exist. Skipping it.");
+//        LOG_DEBUG(log, "File for index " << backQuote(index->name) << " does not exist. Skipping it.");
         return ranges;
     }
 
@@ -1399,7 +1399,7 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingIndex(
         last_index_mark = index_range.end - 1;
     }
 
-    LOG_DEBUG(log, "Index " << backQuote(index->name) << " has dropped " << granules_dropped << " granules.");
+//    LOG_DEBUG(log, "Index " << backQuote(index->name) << " has dropped " << granules_dropped << " granules.");
 
     return res;
 }
