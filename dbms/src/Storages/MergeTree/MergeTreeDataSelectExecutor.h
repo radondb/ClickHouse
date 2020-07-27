@@ -88,12 +88,12 @@ private:
         String & out_column,
         const Context & context) const;
 
-    static MarkRanges markRangesFromPKRange(
+    MarkRanges markRangesFromPKRange(
         const MergeTreeData::DataPartPtr & part,
         const KeyCondition & key_condition,
         const Settings & settings) const;
 
-    static MarkRanges filterMarksUsingIndex(
+    MarkRanges filterMarksUsingIndex(
         MergeTreeIndexPtr index,
         MergeTreeIndexConditionPtr condition,
         MergeTreeData::DataPartPtr part,
