@@ -524,8 +524,6 @@ Pipes MergeTreeDataSelectExecutor::readFromParts(
     if (select.prewhere())
         prewhere_column = select.prewhere()->getColumnName();
 
-    RangesInDataParts parts_with_ranges;
-
     std::vector<std::pair<MergeTreeIndexPtr, MergeTreeIndexConditionPtr>> useful_indices;
     for (const auto & index : data.skip_indices)
     {
