@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Common/typeid_cast.h>
+#include <Parsers/ASTLiteral.h>
 #include <Parsers/ASTQueryWithTableAndOutput.h>
 #include <Parsers/ASTRenameQuery.h>
 #include <Parsers/ASTIdentifier.h>
@@ -34,7 +35,8 @@ public:
         visitDDLChildren(ast);
 
         if (!tryVisitDynamicCast<ASTQueryWithTableAndOutput>(ast) &&
-            !tryVisitDynamicCast<ASTRenameQuery>(ast))
+            !tryVisitDynamicCast<ASTRenameQuery>(ast) &&
+            !tryVisitDynamicCast<ASTFunction>(ast))
         {}
     }
 
@@ -176,6 +178,15 @@ private:
                 elem.from.database = database_name;
             if (elem.to.database.empty())
                 elem.to.database = database_name;
+        }
+    }
+
+    void visitDDL(ASTFunction & function, ASTPtr & node) const
+    {
+        if (function.name == "currentDatabase")
+        {
+            node = std::make_shared<ASTLiteral>(database_name);
+            return;
         }
     }
 
