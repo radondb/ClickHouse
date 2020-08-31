@@ -1388,11 +1388,11 @@ BlockIO executeDDLQueryOnCluster(const ASTPtr & query_ptr_, const Context & cont
             /// Expand empty database name to shards' default (o current) database name
             for (const String & database : query_databases)
             {
+                bool has_shard_default_db = !addr.default_database.empty();
+                use_shard_default_db |= has_shard_default_db;
+                use_local_default_db |= !has_shard_default_db;
                 if (database.empty())
                 {
-                    bool has_shard_default_db = !addr.default_database.empty();
-                    use_shard_default_db |= has_shard_default_db;
-                    use_local_default_db |= !has_shard_default_db;
                     databases_to_access.emplace(has_shard_default_db ? addr.default_database : current_database);
                 }
                 else
