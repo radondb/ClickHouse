@@ -1425,9 +1425,10 @@ BlockIO executeDDLQueryOnCluster(const ASTPtr & query_ptr_, const Context & cont
 
     if (use_local_default_db)
     {
-        AddDefaultDatabaseVisitor visitor(current_database);
-        visitor.visitDDL(query_ptr);
     }
+
+    AddDefaultDatabaseVisitor visitor(current_database, !use_local_default_db);
+    visitor.visitDDL(query_ptr);
 
     DDLLogEntry entry;
     entry.hosts = std::move(hosts);
