@@ -1,16 +1,19 @@
 FROM ubuntu:18.04
 
-ARG repository="deb http://repo.yandex.ru/clickhouse/deb/stable/ main/"
-ARG version=19.17.6.*
+ARG repository="deb https://sourceforge.net/projects/clickhouse/files/apt/ clickhouse-server main"
+ARG version=19.17.6
 ARG gosu_ver=1.10
 
-RUN apt-get update \
+RUN sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list \
+    && apt-get update \
     && apt-get install --yes --no-install-recommends \
         apt-transport-https \
         dirmngr \
         gnupg \
+        wget \
+        ca-certificates \
     && mkdir -p /etc/apt/sources.list.d \
-    && apt-key adv --keyserver keyserver.ubuntu.com --recv E0C56BD4 \
+    && wget -O - https://sourceforge.net/projects/clickhouse/files/apt/key/deb.gpg.key | apt-key add - \
     && echo $repository > /etc/apt/sources.list.d/clickhouse.list \
     && apt-get update \
     && env DEBIAN_FRONTEND=noninteractive \
@@ -21,7 +24,6 @@ RUN apt-get update \
             libgcc-7-dev \
             locales \
             tzdata \
-            wget \
     && rm -rf \
         /var/lib/apt/lists/* \
         /var/cache/debconf \
