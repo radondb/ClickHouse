@@ -128,7 +128,7 @@ private:
     std::atomic<bool> sync_ddl_worker_flag{true};
     std::mutex sync_ddl_mutex;
     std::condition_variable cond;
-
+    std::string server_id;
     int sync_error_code = 0;
     String sync_exception_message = "";
 
