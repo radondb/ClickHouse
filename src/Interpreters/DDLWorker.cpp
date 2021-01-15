@@ -175,6 +175,7 @@ struct DDLTask
     /// Stage 2: resolve host_id and check that
     HostID host_id;
     String host_id_str;
+    String server_id;
 
     /// Stage 3.1: parse query
     ASTPtr query;
@@ -321,6 +322,9 @@ DDLWorker::DDLWorker(const std::string & zk_root_dir, Context & context_, const 
         cleanup_delay_period = config->getUInt64(prefix + ".cleanup_delay_period", static_cast<UInt64>(cleanup_delay_period));
         max_tasks_in_queue = std::max<UInt64>(1, config->getUInt64(prefix + ".max_tasks_in_queue", max_tasks_in_queue));
         sync_ddl_worker_flag = config->getBool(prefix + ".sync_ddl_worker_when_start", true);
+        server_id = config->getString(prefix + ".server_id");
+        if (server_id.empty())
+            throw Exception("Can not get server_id in config " + prefix, ErrorCodes::LOGICAL_ERROR);
 
         if (config->has(prefix + ".profile"))
             context.setSetting("profile", config->getString(prefix + ".profile"));
@@ -435,6 +439,7 @@ bool DDLWorker::initAndCheckTask(const String & entry_name, String & out_reason,
             host_in_hostlist = true;
             task->host_id = host;
             task->host_id_str = host.toString();
+            task->server_id = server_id;
         }
     }
 
@@ -449,7 +454,7 @@ bool DDLWorker::initAndCheckTask(const String & entry_name, String & out_reason,
 
             String description;
             ParserQuery parser_query(end);
-            const auto & query = parseQuery(parser_query, begin, end, description, 0);
+            const auto & query = parseQuery(parser_query, begin, end, description, 0, 0);
 
             ASTQueryWithOnCluster * query_on_cluster = nullptr;
             // XXX: serious design flaw since `ASTQueryWithOnCluster` is not inherited from `IAST`!
@@ -474,6 +479,7 @@ bool DDLWorker::initAndCheckTask(const String & entry_name, String & out_reason,
                         found_via_resolving = true;
                         task->host_id = HostID(address);
                         task->host_id_str = task->host_id.toString();
+                        task->server_id = server_id;
                     }
                 }
             }
@@ -543,7 +549,7 @@ void DDLWorker::processTasks()
 
         DDLTask & task = *current_task;
 
-        bool already_processed = zookeeper->exists(task.entry_path + "/finished/" + task.host_id_str);
+        bool already_processed = zookeeper->exists(task.entry_path + "/finished/" + task.host_id_str) || zookeeper->exists(task.entry_path + "/finished_server/" + task.server_id);
         if (!server_startup && !task.was_executed && already_processed)
         {
             throw Exception(
@@ -762,6 +768,7 @@ void DDLWorker::processTask(DDLTask & task, const ZooKeeperPtr & zookeeper)
     String dummy;
     String active_node_path = task.entry_path + "/active/" + task.host_id_str;
     String finished_node_path = task.entry_path + "/finished/" + task.host_id_str;
+    String finished_server_path = task.entry_path + "/finished_server/" + task.server_id;
 
     auto code = zookeeper->tryCreate(active_node_path, "", zkutil::CreateMode::Ephemeral, dummy);
 
@@ -834,6 +841,7 @@ void DDLWorker::processTask(DDLTask & task, const ZooKeeperPtr & zookeeper)
     Coordination::Requests ops;
     ops.emplace_back(zkutil::makeRemoveRequest(active_node_path, -1));
     ops.emplace_back(zkutil::makeCreateRequest(finished_node_path, task.execution_status.serializeText(), zkutil::CreateMode::Persistent));
+    ops.emplace_back(zkutil::makeCreateRequest(finished_server_path, task.execution_status.serializeText(), zkutil::CreateMode::Persistent));
     zookeeper->multi(ops);
 }
 
@@ -1093,6 +1101,11 @@ void DDLWorker::createStatusDirs(const std::string & node_path, const ZooKeeperP
         request.path = node_path + "/finished";
         ops.emplace_back(std::make_shared<Coordination::CreateRequest>(std::move(request)));
     }
+    {
+        Coordination::CreateRequest request;
+        request.path = node_path + "/finished_server";
+        ops.emplace_back(std::make_shared<Coordination::CreateRequest>(std::move(request)));
+    }
     Coordination::Responses responses;
     Coordination::Error code = zookeeper->tryMulti(ops, responses);
     if (code != Coordination::Error::ZOK
@@ -1220,7 +1233,7 @@ void DDLWorker::runMainThread()
                 {
                     {
                         std::lock_guard sync_lock{sync_ddl_mutex};
-                        sync_error_code = e.code;
+                        sync_error_code = static_cast<int>(e.code);
                         sync_exception_message = e.message();
                     }
 
