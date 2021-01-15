@@ -177,6 +177,7 @@ struct DDLTask
     /// Stage 2: resolve host_id and check that
     HostID host_id;
     String host_id_str;
+    String server_id;
 
     /// Stage 3.1: parse query
     ASTPtr query;
@@ -330,6 +331,7 @@ DDLWorker::DDLWorker(int pool_size_, const std::string & zk_root_dir, Context & 
         cleanup_delay_period = config->getUInt64(prefix + ".cleanup_delay_period", static_cast<UInt64>(cleanup_delay_period));
         max_tasks_in_queue = std::max<UInt64>(1, config->getUInt64(prefix + ".max_tasks_in_queue", max_tasks_in_queue));
         sync_ddl_worker_flag = config->getBool(prefix + ".sync_ddl_worker_when_start", true);
+        server_id = config->getString(prefix + ".server_id", "");
 
         if (config->has(prefix + ".profile"))
             context.setSetting("profile", config->getString(prefix + ".profile"));
@@ -464,6 +466,7 @@ DDLTaskPtr DDLWorker::initAndCheckTask(const String & entry_name, String & out_r
             host_in_hostlist = true;
             task->host_id = host;
             task->host_id_str = host.toString();
+            task->server_id = server_id;
         }
     }
 
@@ -503,6 +506,7 @@ DDLTaskPtr DDLWorker::initAndCheckTask(const String & entry_name, String & out_r
                         found_via_resolving = true;
                         task->host_id = HostID(address);
                         task->host_id_str = task->host_id.toString();
+                        task->server_id = server_id;
                     }
                 }
             }
@@ -553,7 +557,10 @@ void DDLWorker::scheduleTasks()
             continue;
         }
 
-        bool already_processed = zookeeper->exists(fs::path(task->entry_path)  / "finished" / task->host_id_str);
+        bool already_processed = (task->server_id.empty()) ?
+                zookeeper->exists(task->entry_path + "/finished/" + task->host_id_str)
+                : (zookeeper->exists(task->entry_path + "/finished/" + task->host_id_str) || zookeeper->exists(task->entry_path + "/finished_server/" + task->server_id));
+
         if (!server_startup && !task->was_executed && already_processed)
         {
             throw Exception(ErrorCodes::LOGICAL_ERROR,
@@ -799,6 +806,7 @@ void DDLWorker::processTask(DDLTask & task)
     String dummy;
     String active_node_path = task.entry_path + "/active/" + task.host_id_str;
     String finished_node_path = task.entry_path + "/finished/" + task.host_id_str;
+    String finished_server_path = task.entry_path + "/finished_server/" + task.server_id;
 
     auto code = zookeeper->tryCreate(active_node_path, "", zkutil::CreateMode::Ephemeral, dummy);
 
@@ -886,6 +894,8 @@ void DDLWorker::processTask(DDLTask & task)
     Coordination::Requests ops;
     ops.emplace_back(zkutil::makeRemoveRequest(active_node_path, -1));
     ops.emplace_back(zkutil::makeCreateRequest(finished_node_path, task.execution_status.serializeText(), zkutil::CreateMode::Persistent));
+    if (task.server_id != "")
+        ops.emplace_back(zkutil::makeCreateRequest(finished_server_path, task.execution_status.serializeText(), zkutil::CreateMode::Persistent));
     zookeeper->multi(ops);
 }
 
@@ -1152,6 +1162,11 @@ void DDLWorker::createStatusDirs(const std::string & node_path, const ZooKeeperP
     {
         Coordination::CreateRequest request;
         request.path = fs::path(node_path) / "finished";
+        ops.emplace_back(std::make_shared<Coordination::CreateRequest>(std::move(request)));
+    }
+    {
+        Coordination::CreateRequest request;
+        request.path = node_path + "/finished_server";
         ops.emplace_back(std::make_shared<Coordination::CreateRequest>(std::move(request)));
     }
     Coordination::Responses responses;
