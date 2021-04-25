@@ -60,7 +60,7 @@ void registerDataTypeString(DataTypeFactory & factory)
     factory.registerDataType("String", create);
 
     /// These synonims are added for compatibility.
-
+    factory.registerAlias("JSON", "String", DataTypeFactory::CaseInsensitive);
     factory.registerAlias("CHAR", "String", DataTypeFactory::CaseInsensitive);
     factory.registerAlias("NCHAR", "String", DataTypeFactory::CaseInsensitive);
     factory.registerAlias("CHARACTER", "String", DataTypeFactory::CaseInsensitive);
