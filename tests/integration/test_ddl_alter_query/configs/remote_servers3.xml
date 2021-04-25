@@ -4,25 +4,30 @@
             <shard>
                 <internal_replication>true</internal_replication>
                 <replica>
-                    <host>node_1_1</host>
+                    <host>node1</host>
                     <port>9000</port>
                 </replica>
                 <replica>
-                    <host>node_1_2</host>
+                    <host>node2</host>
                     <port>9000</port>
                 </replica>
             </shard>
             <shard>
                 <internal_replication>true</internal_replication>
                 <replica>
-                    <host>node_2_1</host>
+                    <host>node3</host>
                     <port>9000</port>
                 </replica>
                 <replica>
-                    <host>node_2_2</host>
+                    <host>node4</host>
                     <port>9000</port>
                 </replica>
             </shard>
         </test_cluster>
     </remote_servers>
+    <default_on_cluster_name>test_cluster</default_on_cluster_name>
+    <macros>
+        <shard>2</shard>
+        <replica>1</replica>
+    </macros>
 </yandex>

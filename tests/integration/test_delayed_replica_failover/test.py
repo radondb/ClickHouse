@@ -14,10 +14,10 @@ cluster = ClickHouseCluster(__file__)
 # Cluster with 2 shards of 2 replicas each. node_1_1 is the instance with Distributed table.
 # Thus we have a shard with a local replica and a shard with remote replicas.
 node_1_1 = instance_with_dist_table = cluster.add_instance(
-    'node_1_1', with_zookeeper=True, main_configs=['configs/remote_servers.xml'])
-node_1_2 = cluster.add_instance('node_1_2', with_zookeeper=True)
-node_2_1 = cluster.add_instance('node_2_1', with_zookeeper=True)
-node_2_2 = cluster.add_instance('node_2_2', with_zookeeper=True)
+    'node_1_1', with_zookeeper=True, main_configs=['configs/remote_servers1_1.xml'])
+node_1_2 = cluster.add_instance('node_1_2', with_zookeeper=True, main_configs=['configs/remote_servers1_2.xml'])
+node_2_1 = cluster.add_instance('node_2_1', with_zookeeper=True, main_configs=['configs/remote_servers2_1.xml'])
+node_2_2 = cluster.add_instance('node_2_2', with_zookeeper=True, main_configs=['configs/remote_servers2_2.xml'])
 
 
 @pytest.fixture(scope="module")
@@ -25,13 +25,9 @@ def started_cluster():
     try:
         cluster.start()
 
-        for shard in (1, 2):
-            for replica in (1, 2):
-                node = cluster.instances['node_{}_{}'.format(shard, replica)]
-                node.query('''
+        node_2_1.query('''
 CREATE TABLE replicated (d Date, x UInt32) ENGINE =
-    ReplicatedMergeTree('/clickhouse/tables/{shard}/replicated', '{instance}', d, d, 8192)'''
-                           .format(shard=shard, instance=node.name))
+    ReplicatedMergeTree('/clickhouse/tables/{shard}/replicated', '{instance}', d, d, 8192)''')
 
         node_1_1.query(
             "CREATE TABLE distributed (d Date, x UInt32) ENGINE = "

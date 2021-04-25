@@ -28,7 +28,7 @@
     </remote_servers>
     <macros>
         <shard>0</shard>
-        <replica>node1</replica>
+        <replica>node2</replica>
     </macros>
 
 </yandex>

@@ -15,6 +15,6 @@
         </test_cluster>
     </remote_servers>
     <macros>
-        <replica>1</replica>
+        <replica>2</replica>
     </macros>
 </yandex>

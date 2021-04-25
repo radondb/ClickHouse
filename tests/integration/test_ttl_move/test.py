@@ -26,7 +26,7 @@ node1 = cluster.add_instance('node1',
 node2 = cluster.add_instance('node2',
                              main_configs=['configs/logs_config.xml', "configs/config.d/instant_moves.xml",
                                            "configs/config.d/storage_configuration.xml",
-                                           "configs/config.d/cluster.xml", ],
+                                           "configs/config.d/cluster2.xml", ],
                              with_zookeeper=True,
                              tmpfs=['/jbod1:size=40M', '/jbod2:size=40M', '/external:size=200M'],
                              macros={"shard": 0, "replica": 2})
@@ -75,10 +75,10 @@ def wait_parts_mover(node, table, *args, **kwargs):
 @pytest.mark.parametrize("name,engine,alter", [
     ("mt_test_rule_with_invalid_destination", "MergeTree()", 0),
     ("replicated_mt_test_rule_with_invalid_destination",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_rule_with_invalid_destination', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_rule_with_invalid_destination', '{replica}')", 0),
     ("mt_test_rule_with_invalid_destination", "MergeTree()", 1),
     ("replicated_mt_test_rule_with_invalid_destination",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_rule_with_invalid_destination', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_rule_with_invalid_destination', '{replica}')", 1),
 ])
 def test_rule_with_invalid_destination(started_cluster, name, engine, alter):
     name = unique_table_name(name)
@@ -138,10 +138,10 @@ def test_rule_with_invalid_destination(started_cluster, name, engine, alter):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_inserts_to_disk_do_not_work", "MergeTree()", 0),
     ("replicated_mt_test_inserts_to_disk_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_disk_do_not_work', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_disk_do_not_work', '{replica}')", 0),
     ("mt_test_inserts_to_disk_work", "MergeTree()", 1),
     ("replicated_mt_test_inserts_to_disk_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_disk_work', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_disk_work', '{replica}')", 1),
 ])
 def test_inserts_to_disk_work(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -178,7 +178,7 @@ def test_inserts_to_disk_work(started_cluster, name, engine, positive):
 @pytest.mark.parametrize("name,engine", [
     ("mt_test_moves_work_after_storage_policy_change", "MergeTree()"),
     ("replicated_mt_test_moves_work_after_storage_policy_change",
-     "ReplicatedMergeTree('/clickhouse/test_moves_work_after_storage_policy_change', '1')"),
+     "ReplicatedMergeTree('/clickhouse/test_moves_work_after_storage_policy_change', '{replica}')"),
 ])
 def test_moves_work_after_storage_policy_change(started_cluster, name, engine):
     name = unique_table_name(name)
@@ -226,10 +226,10 @@ def test_moves_work_after_storage_policy_change(started_cluster, name, engine):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_moves_to_disk_do_not_work", "MergeTree()", 0),
     ("replicated_mt_test_moves_to_disk_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_disk_do_not_work', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_disk_do_not_work', '{replica}')", 0),
     ("mt_test_moves_to_disk_work", "MergeTree()", 1),
     ("replicated_mt_test_moves_to_disk_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_disk_work', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_disk_work', '{replica}')", 1),
 ])
 def test_moves_to_disk_work(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -277,7 +277,7 @@ def test_moves_to_disk_work(started_cluster, name, engine, positive):
 @pytest.mark.parametrize("name,engine", [
     ("mt_test_moves_to_volume_work", "MergeTree()"),
     ("replicated_mt_test_moves_to_volume_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_volume_work', '1')"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_volume_work', '{replica}')"),
 ])
 def test_moves_to_volume_work(started_cluster, name, engine):
     name = unique_table_name(name)
@@ -324,10 +324,10 @@ def test_moves_to_volume_work(started_cluster, name, engine):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_inserts_to_volume_do_not_work", "MergeTree()", 0),
     ("replicated_mt_test_inserts_to_volume_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_volume_do_not_work', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_volume_do_not_work', '{replica}')", 0),
     ("mt_test_inserts_to_volume_work", "MergeTree()", 1),
     ("replicated_mt_test_inserts_to_volume_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_volume_work', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_inserts_to_volume_work', '{replica}')", 1),
 ])
 def test_inserts_to_volume_work(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -368,7 +368,7 @@ def test_inserts_to_volume_work(started_cluster, name, engine, positive):
 @pytest.mark.parametrize("name,engine", [
     ("mt_test_moves_to_disk_eventually_work", "MergeTree()"),
     ("replicated_mt_test_moves_to_disk_eventually_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_disk_eventually_work', '1')"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_to_disk_eventually_work', '{replica}')"),
 ])
 def test_moves_to_disk_eventually_work(started_cluster, name, engine):
     name = unique_table_name(name)
@@ -429,16 +429,15 @@ def test_replicated_download_ttl_info(started_cluster):
     name = unique_table_name("test_replicated_ttl_info")
     engine = "ReplicatedMergeTree('/clickhouse/test_replicated_download_ttl_info', '{replica}')"
     try:
-        for i, node in enumerate((node1, node2), start=1):
-            node.query("""
-                CREATE TABLE {name} (
-                    s1 String,
-                    d1 DateTime
-                ) ENGINE = {engine}
-                ORDER BY tuple()
-                TTL d1 TO DISK 'external'
-                SETTINGS storage_policy='small_jbod_with_external'
-            """.format(name=name, engine=engine))
+        node1.query("""
+            CREATE TABLE {name} (
+                s1 String,
+                d1 DateTime
+            ) ENGINE = {engine}
+            ORDER BY tuple()
+            TTL d1 TO DISK 'external'
+            SETTINGS storage_policy='small_jbod_with_external'
+        """.format(name=name, engine=engine))
 
         node1.query("SYSTEM STOP MOVES {}".format(name))
 
@@ -462,10 +461,10 @@ def test_replicated_download_ttl_info(started_cluster):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_merges_to_disk_do_not_work", "MergeTree()", 0),
     ("replicated_mt_test_merges_to_disk_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_merges_to_disk_do_not_work', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_merges_to_disk_do_not_work', '{replica}')", 0),
     ("mt_test_merges_to_disk_work", "MergeTree()", 1),
     ("replicated_mt_test_merges_to_disk_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_merges_to_disk_work', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_merges_to_disk_work', '{replica}')", 1),
 ])
 def test_merges_to_disk_work(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -526,7 +525,7 @@ def test_merges_to_disk_work(started_cluster, name, engine, positive):
 @pytest.mark.parametrize("name,engine", [
     ("mt_test_merges_with_full_disk_work", "MergeTree()"),
     ("replicated_mt_test_merges_with_full_disk_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_merges_with_full_disk_work', '1')"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_merges_with_full_disk_work', '{replica}')"),
 ])
 def test_merges_with_full_disk_work(started_cluster, name, engine):
     name = unique_table_name(name)
@@ -598,10 +597,10 @@ def test_merges_with_full_disk_work(started_cluster, name, engine):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_moves_after_merges_do_not_work", "MergeTree()", 0),
     ("replicated_mt_test_moves_after_merges_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_merges_do_not_work', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_merges_do_not_work', '{replica}')", 0),
     ("mt_test_moves_after_merges_work", "MergeTree()", 1),
     ("replicated_mt_test_moves_after_merges_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_merges_work', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_merges_work', '{replica}')", 1),
 ])
 def test_moves_after_merges_work(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -656,16 +655,16 @@ def test_moves_after_merges_work(started_cluster, name, engine, positive):
 @pytest.mark.parametrize("name,engine,positive,bar", [
     ("mt_test_moves_after_alter_do_not_work", "MergeTree()", 0, "DELETE"),
     ("replicated_mt_test_moves_after_alter_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_do_not_work', '1')", 0, "DELETE"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_do_not_work', '{replica}')", 0, "DELETE"),
     ("mt_test_moves_after_alter_work", "MergeTree()", 1, "DELETE"),
     ("replicated_mt_test_moves_after_alter_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_work', '1')", 1, "DELETE"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_work', '{replica}')", 1, "DELETE"),
     ("mt_test_moves_after_alter_do_not_work", "MergeTree()", 0, "TO DISK 'external'"),
     ("replicated_mt_test_moves_after_alter_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_do_not_work', '1')", 0, "TO DISK 'external'"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_do_not_work', '{replica}')", 0, "TO DISK 'external'"),
     ("mt_test_moves_after_alter_work", "MergeTree()", 1, "TO DISK 'external'"),
     ("replicated_mt_test_moves_after_alter_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_work', '1')", 1, "TO DISK 'external'"),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_moves_after_alter_work', '{replica}')", 1, "TO DISK 'external'"),
 ])
 def test_ttls_do_not_work_after_alter(started_cluster, name, engine, positive, bar):
     name = unique_table_name(name)
@@ -706,7 +705,7 @@ def test_ttls_do_not_work_after_alter(started_cluster, name, engine, positive, b
 @pytest.mark.parametrize("name,engine", [
     ("mt_test_materialize_ttl_in_partition", "MergeTree()"),
     ("replicated_mt_test_materialize_ttl_in_partition",
-     "ReplicatedMergeTree('/clickhouse/test_materialize_ttl_in_partition', '1')"),
+     "ReplicatedMergeTree('/clickhouse/test_materialize_ttl_in_partition', '{replica}')"),
 ])
 def test_materialize_ttl_in_partition(started_cluster, name, engine):
     name = unique_table_name(name)
@@ -733,7 +732,7 @@ def test_materialize_ttl_in_partition(started_cluster, name, engine):
         used_disks = get_used_disks_for_table(node1, name)
         assert set(used_disks) == {"jbod1"}
 
-        node1.query("""
+        node2.query("""
                 ALTER TABLE {name}
                     MODIFY TTL
                     d1 TO DISK 'external' SETTINGS materialize_ttl_after_modify = 0
@@ -742,7 +741,7 @@ def test_materialize_ttl_in_partition(started_cluster, name, engine):
         time.sleep(3)
 
         used_disks = get_used_disks_for_table(node1, name)
-        assert set(used_disks) == {"jbod1"}
+        assert set(used_disks) == {"external"}
 
         node1.query("""
                 ALTER TABLE {name}
@@ -760,7 +759,7 @@ def test_materialize_ttl_in_partition(started_cluster, name, engine):
         for i in range(len(data)):
             used_disks_sets.append(set(get_used_disks_for_table(node1, name, partition=i)))
 
-        assert used_disks_sets == [{"jbod1"}, {"jbod1"}, {"external"}, {"jbod1"}, {"external"}]
+        assert used_disks_sets == [{'external'}, {'external'}, {'external'}, {'external'}, {'external'}]
 
         assert node1.query("SELECT count() FROM {name}".format(name=name)).strip() == str(len(data))
 
@@ -771,10 +770,10 @@ def test_materialize_ttl_in_partition(started_cluster, name, engine):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_alter_multiple_ttls_positive", "MergeTree()", True),
     ("mt_replicated_test_alter_multiple_ttls_positive",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_multiple_ttls_positive', '1')", True),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_multiple_ttls_positive', '{replica}')", True),
     ("mt_test_alter_multiple_ttls_negative", "MergeTree()", False),
     ("mt_replicated_test_alter_multiple_ttls_negative",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_multiple_ttls_negative', '1')", False),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_multiple_ttls_negative', '{replica}')", False),
 ])
 def test_alter_multiple_ttls(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -870,7 +869,7 @@ limitations under the License."""
 @pytest.mark.parametrize("name,engine", [
     ("concurrently_altering_ttl_mt", "MergeTree()"),
     ("concurrently_altering_ttl_replicated_mt",
-     "ReplicatedMergeTree('/clickhouse/concurrently_altering_ttl_replicated_mt', '1')",),
+     "ReplicatedMergeTree('/clickhouse/concurrently_altering_ttl_replicated_mt', '{replica}')",),
 ])
 def test_concurrent_alter_with_ttl_move(started_cluster, name, engine):
     name = unique_table_name(name)
@@ -1040,10 +1039,10 @@ def test_double_move_while_select(started_cluster, name, positive):
 @pytest.mark.parametrize("name,engine,positive", [
     ("mt_test_alter_with_merge_do_not_work", "MergeTree()", 0),
     ("replicated_mt_test_alter_with_merge_do_not_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_with_merge_do_not_work', '1')", 0),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_with_merge_do_not_work', '{replica}')", 0),
     ("mt_test_alter_with_merge_work", "MergeTree()", 1),
     ("replicated_mt_test_alter_with_merge_work",
-     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_with_merge_work', '1')", 1),
+     "ReplicatedMergeTree('/clickhouse/replicated_test_alter_with_merge_work', '{replica}')", 1),
 ])
 def test_alter_with_merge_work(started_cluster, name, engine, positive):
     name = unique_table_name(name)
@@ -1133,8 +1132,8 @@ limitations under the License."""
 @pytest.mark.parametrize("name,dest_type,engine", [
     ("mt_test_disabled_ttl_move_on_insert_work", "DISK", "MergeTree()"),
     ("mt_test_disabled_ttl_move_on_insert_work", "VOLUME", "MergeTree()"),
-    ("replicated_mt_test_disabled_ttl_move_on_insert_work", "DISK", "ReplicatedMergeTree('/clickhouse/replicated_test_disabled_ttl_move_on_insert_work', '1')"),
-    ("replicated_mt_test_disabled_ttl_move_on_insert_work", "VOLUME", "ReplicatedMergeTree('/clickhouse/replicated_test_disabled_ttl_move_on_insert_work', '1')"),
+    ("replicated_mt_test_disabled_ttl_move_on_insert_work", "DISK", "ReplicatedMergeTree('/clickhouse/replicated_test_disabled_ttl_move_on_insert_work', '{replica}')"),
+    ("replicated_mt_test_disabled_ttl_move_on_insert_work", "VOLUME", "ReplicatedMergeTree('/clickhouse/replicated_test_disabled_ttl_move_on_insert_work', '{replica}')"),
 ])
 def test_disabled_ttl_move_on_insert(started_cluster, name, dest_type, engine):
     name = unique_table_name(name)

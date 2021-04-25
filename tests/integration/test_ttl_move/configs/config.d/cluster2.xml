@@ -1,4 +1,5 @@
 <yandex>
+    <default_on_cluster_name>test_cluster</default_on_cluster_name>
     <remote_servers>
         <test_cluster>
             <shard>
@@ -6,7 +7,6 @@
                     <host>node1</host>
                     <port>9000</port>
                 </replica>
-
                 <replica>
                     <host>node2</host>
                     <port>9000</port>
@@ -15,6 +15,6 @@
         </test_cluster>
     </remote_servers>
     <macros>
-        <replica>1</replica>
+        <replica>node2</replica>
     </macros>
 </yandex>

@@ -1,5 +1,3 @@
-
-
 import time
 from os import path as p, unlink
 from tempfile import NamedTemporaryFile
