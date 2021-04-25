@@ -1,4 +1,5 @@
 <yandex>
+    <default_on_cluster_name>test_local_cluster</default_on_cluster_name>
     <remote_servers>
         <test_local_cluster>
             <shard>
@@ -15,4 +16,7 @@
             </shard>
         </test_local_cluster>
     </remote_servers>
+    <macros>
+        <replica>node1</replica>
+    </macros>
 </yandex>

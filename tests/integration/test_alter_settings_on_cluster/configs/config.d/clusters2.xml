@@ -1,4 +1,5 @@
 <yandex>
+<default_on_cluster_name>cluster</default_on_cluster_name>
 <remote_servers>
     <cluster>
         <shard>
@@ -14,4 +15,9 @@
         </shard>
     </cluster>
 </remote_servers>
+<macros>
+    <layer>06</layer>
+    <shard>08</shard>
+    <replica>r2</replica>
+</macros>
 </yandex>

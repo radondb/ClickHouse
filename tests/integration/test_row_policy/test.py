@@ -11,7 +11,7 @@ node = cluster.add_instance('node', main_configs=["configs/config.d/remote_serve
                             user_configs=["configs/users.d/row_policy.xml", "configs/users.d/another_user.xml",
                                           "configs/users.d/any_join_distinct_right_table_keys.xml"],
                             with_zookeeper=True)
-node2 = cluster.add_instance('node2', main_configs=["configs/config.d/remote_servers.xml"],
+node2 = cluster.add_instance('node2', main_configs=["configs/config.d/remote_servers2.xml"],
                              user_configs=["configs/users.d/row_policy.xml", "configs/users.d/another_user.xml",
                                            "configs/users.d/any_join_distinct_right_table_keys.xml"],
                              with_zookeeper=True)
@@ -32,8 +32,7 @@ def started_cluster():
     try:
         cluster.start()
 
-        for current_node in nodes:
-            current_node.query('''
+        node.query('''
                 CREATE DATABASE mydb;
 
                 CREATE TABLE mydb.filtered_table1 (a UInt8, b UInt8) ENGINE MergeTree ORDER BY a;
@@ -69,8 +68,7 @@ def reset_policies():
         yield
     finally:
         copy_policy_xml('normal_filters.xml')
-        for current_node in nodes:
-            current_node.query("DROP POLICY IF EXISTS pA, pB ON mydb.filtered_table1")
+        node2.query("DROP POLICY IF EXISTS pA, pB ON mydb.filtered_table1")
 
 
 def test_smoke():
@@ -206,41 +204,53 @@ def test_introspection():
          0, 0, "['default']", "[]"]
     ]
     assert node.query("SELECT * from system.row_policies ORDER BY short_name, database, table") == TSV(policies)
+    assert node.query("SELECT * from system.row_policies ORDER BY short_name, database, table") == node2.query("SELECT * from system.row_policies ORDER BY short_name, database, table")
 
+def test_on_cluster():
+    copy_policy_xml('no_filters.xml')
+    assert node.query("SHOW POLICIES") == ""
+
+    node.query("CREATE POLICY pA ON mydb.filtered_table1 FOR SELECT USING a<b")
+    assert node2.query("SELECT * FROM mydb.filtered_table1") == ""
+    assert node2.query("SHOW POLICIES ON mydb.filtered_table1") == "pA\n"
 
 def test_dcl_introspection():
     assert node.query("SHOW POLICIES") == TSV(
         ["another ON mydb.filtered_table1", "another ON mydb.filtered_table2", "another ON mydb.filtered_table3",
          "another ON mydb.local", "default ON mydb.filtered_table1", "default ON mydb.filtered_table2",
-         "default ON mydb.filtered_table3", "default ON mydb.local"])
+         "default ON mydb.filtered_table3", "default ON mydb.local"]) == node2.query("SHOW POLICIES")
 
-    assert node.query("SHOW POLICIES ON mydb.filtered_table1") == TSV(["another", "default"])
-    assert node.query("SHOW POLICIES ON mydb.local") == TSV(["another", "default"])
+    assert node.query("SHOW POLICIES ON mydb.filtered_table1") == TSV(["another", "default"]) == node2.query("SHOW POLICIES ON mydb.filtered_table1")
+    assert node.query("SHOW POLICIES ON mydb.local") == TSV(["another", "default"]) == node2.query("SHOW POLICIES ON mydb.local")
     assert node.query("SHOW POLICIES ON mydb.*") == TSV(
         ["another ON mydb.filtered_table1", "another ON mydb.filtered_table2", "another ON mydb.filtered_table3",
          "another ON mydb.local", "default ON mydb.filtered_table1", "default ON mydb.filtered_table2",
-         "default ON mydb.filtered_table3", "default ON mydb.local"])
+         "default ON mydb.filtered_table3", "default ON mydb.local"]) == node2.query("SHOW POLICIES ON mydb.*")
     assert node.query("SHOW POLICIES default") == TSV(
         ["default ON mydb.filtered_table1", "default ON mydb.filtered_table2", "default ON mydb.filtered_table3",
-         "default ON mydb.local"])
+         "default ON mydb.local"]) == node2.query("SHOW POLICIES default")
 
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table1") == "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table1") == "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table1")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table2") == "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING ((a + b) < 1) OR ((c - d) > 5) TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table2") == "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING ((a + b) < 1) OR ((c - d) > 5) TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table2")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table3") == "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING c = 1 TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table3") == "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING c = 1 TO default\n" ==  node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table3")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.local") == "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default\n"
+        "SHOW CREATE POLICY default ON mydb.local") == "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.local")
 
     assert node.query("SHOW CREATE POLICY default") == TSV(
         ["CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default",
          "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING ((a + b) < 1) OR ((c - d) > 5) TO default",
          "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING c = 1 TO default",
-         "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default"])
+         "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default"]) == node2.query("SHOW CREATE POLICY default")
     assert node.query("SHOW CREATE POLICIES ON mydb.filtered_table1") == TSV(
         ["CREATE ROW POLICY another ON mydb.filtered_table1 FOR SELECT USING 1 TO another",
-         "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default"])
+         "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default"]) == node2.query("SHOW CREATE POLICIES ON mydb.filtered_table1")
     assert node.query("SHOW CREATE POLICIES ON mydb.*") == TSV(
         ["CREATE ROW POLICY another ON mydb.filtered_table1 FOR SELECT USING 1 TO another",
          "CREATE ROW POLICY another ON mydb.filtered_table2 FOR SELECT USING 1 TO another",
@@ -249,7 +259,7 @@ def test_dcl_introspection():
          "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default",
          "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING ((a + b) < 1) OR ((c - d) > 5) TO default",
          "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING c = 1 TO default",
-         "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default"])
+         "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default"]) == node2.query("SHOW CREATE POLICIES ON mydb.*")
     assert node.query("SHOW CREATE POLICIES") == TSV(
         ["CREATE ROW POLICY another ON mydb.filtered_table1 FOR SELECT USING 1 TO another",
          "CREATE ROW POLICY another ON mydb.filtered_table2 FOR SELECT USING 1 TO another",
@@ -258,7 +268,7 @@ def test_dcl_introspection():
          "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING a = 1 TO default",
          "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING ((a + b) < 1) OR ((c - d) > 5) TO default",
          "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING c = 1 TO default",
-         "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default"])
+         "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default"]) == node2.query("SHOW CREATE POLICIES")
 
     expected_access = "CREATE ROW POLICY another ON mydb.filtered_table1 FOR SELECT USING 1 TO another\n" \
                       "CREATE ROW POLICY another ON mydb.filtered_table2 FOR SELECT USING 1 TO another\n" \
@@ -269,31 +279,39 @@ def test_dcl_introspection():
                       "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING c = 1 TO default\n" \
                       "CREATE ROW POLICY default ON mydb.local FOR SELECT USING 1 TO default\n"
     assert expected_access in node.query("SHOW ACCESS")
+    assert expected_access in node2.query("SHOW ACCESS")
 
     copy_policy_xml('all_rows.xml')
     assert node.query("SHOW POLICIES") == TSV(
         ["another ON mydb.filtered_table1", "another ON mydb.filtered_table2", "another ON mydb.filtered_table3",
-         "default ON mydb.filtered_table1", "default ON mydb.filtered_table2", "default ON mydb.filtered_table3"])
+         "default ON mydb.filtered_table1", "default ON mydb.filtered_table2", "default ON mydb.filtered_table3"]) == node2.query("SHOW POLICIES")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table1") == "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING 1 TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table1") == "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING 1 TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table1")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table2") == "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING 1 TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table2") == "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING 1 TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table2")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table3") == "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING 1 TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table3") == "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING 1 TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table3")
 
     copy_policy_xml('no_rows.xml')
     assert node.query("SHOW POLICIES") == TSV(
         ["another ON mydb.filtered_table1", "another ON mydb.filtered_table2", "another ON mydb.filtered_table3",
-         "default ON mydb.filtered_table1", "default ON mydb.filtered_table2", "default ON mydb.filtered_table3"])
+         "default ON mydb.filtered_table1", "default ON mydb.filtered_table2", "default ON mydb.filtered_table3"]) ==  node2.query("SHOW POLICIES")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table1") == "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING NULL TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table1") == "CREATE ROW POLICY default ON mydb.filtered_table1 FOR SELECT USING NULL TO default\n" ==  node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table1")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table2") == "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING NULL TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table2") == "CREATE ROW POLICY default ON mydb.filtered_table2 FOR SELECT USING NULL TO default\n" == node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table2")
     assert node.query(
-        "SHOW CREATE POLICY default ON mydb.filtered_table3") == "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING NULL TO default\n"
+        "SHOW CREATE POLICY default ON mydb.filtered_table3") == "CREATE ROW POLICY default ON mydb.filtered_table3 FOR SELECT USING NULL TO default\n" ==  node2.query(
+        "SHOW CREATE POLICY default ON mydb.filtered_table3")
 
     copy_policy_xml('no_filters.xml')
     assert node.query("SHOW POLICIES") == ""
+    assert node2.query("SHOW POLICIES") == ""
 
 
 def test_dcl_management():
@@ -347,7 +365,7 @@ def test_miscellaneous_engines():
     # ReplicatedMergeTree
     node.query("DROP TABLE mydb.filtered_table1")
     node.query(
-        "CREATE TABLE mydb.filtered_table1 (a UInt8, b UInt8) ENGINE ReplicatedMergeTree('/clickhouse/tables/00-00/filtered_table1', 'replica1') ORDER BY a")
+        "CREATE TABLE mydb.filtered_table1 (a UInt8, b UInt8) ENGINE ReplicatedMergeTree('/clickhouse/tables/00-00/filtered_table1', '{replica}') ORDER BY a")
     node.query("INSERT INTO mydb.filtered_table1 values (0, 0), (0, 1), (1, 0), (1, 1)")
     assert node.query("SELECT * FROM mydb.filtered_table1") == TSV([[1, 0], [1, 1]])
 
@@ -360,7 +378,7 @@ def test_miscellaneous_engines():
     # ReplicatedCollapsingMergeTree
     node.query("DROP TABLE mydb.filtered_table1")
     node.query(
-        "CREATE TABLE mydb.filtered_table1 (a UInt8, b Int8) ENGINE ReplicatedCollapsingMergeTree('/clickhouse/tables/00-01/filtered_table1', 'replica1', b) ORDER BY a")
+        "CREATE TABLE mydb.filtered_table1 (a UInt8, b Int8) ENGINE ReplicatedCollapsingMergeTree('/clickhouse/tables/00-01/filtered_table1', '{replica}', b) ORDER BY a")
     node.query("INSERT INTO mydb.filtered_table1 values (0, 1), (0, 1), (1, 1), (1, 1)")
     assert node.query("SELECT * FROM mydb.filtered_table1") == TSV([[1, 1], [1, 1]])
 

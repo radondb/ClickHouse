@@ -27,8 +27,8 @@
         </test_cluster_mixed>
     </remote_servers>
     <macros>
-        <shard>0</shard>
-        <replica>node1</replica>
+        <shard>1</shard>
+        <replica>node3</replica>
     </macros>
 
 </yandex>

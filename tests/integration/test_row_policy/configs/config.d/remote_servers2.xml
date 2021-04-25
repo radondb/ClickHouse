@@ -1,20 +1,22 @@
 <yandex>
+    <default_on_cluster_name>test_local_cluster</default_on_cluster_name>
     <remote_servers>
-        <test_cluster>
+        <test_local_cluster>
             <shard>
                 <replica>
-                    <host>node1</host>
+                    <host>node</host>
                     <port>9000</port>
                 </replica>
-
+            </shard>
+            <shard>
                 <replica>
                     <host>node2</host>
                     <port>9000</port>
                 </replica>
             </shard>
-        </test_cluster>
+        </test_local_cluster>
     </remote_servers>
     <macros>
-        <replica>1</replica>
+        <replica>node2</replica>
     </macros>
 </yandex>

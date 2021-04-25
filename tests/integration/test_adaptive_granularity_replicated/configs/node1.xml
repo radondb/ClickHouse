@@ -1,13 +1,17 @@
 <yandex>
+    <default_on_cluster_name>test_cluster</default_on_cluster_name>
     <remote_servers>
         <test_cluster>
             <shard>
+                <!-- both latest version -->
+                <internal_replication>true</internal_replication>
                 <replica>
+                    <default_database>test</default_database>
                     <host>node1</host>
                     <port>9000</port>
                 </replica>
-
                 <replica>
+                    <default_database>test</default_database>
                     <host>node2</host>
                     <port>9000</port>
                 </replica>
@@ -15,6 +19,7 @@
         </test_cluster>
     </remote_servers>
     <macros>
-        <replica>1</replica>
+        <replica>node1</replica>
     </macros>
+
 </yandex>

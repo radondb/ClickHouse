@@ -44,6 +44,7 @@ def test_startup_without_zookeeper(start_cluster):
     assert node1.query("SELECT COUNT(*) from test_table") == "3\n"
     with pytest.raises(Exception):
         node1.query("INSERT INTO test_table VALUES ('2018-10-01', 1), ('2018-10-02', 2), ('2018-10-03', 3)")
+        assert node1.query("SELECT COUNT(*) from test_table") == "3\n"
 
     node1.restart_clickhouse()
 

@@ -1,6 +1,7 @@
 <yandex>
+    <default_on_cluster_name>test_cluster_mixed</default_on_cluster_name>
     <remote_servers>
-        <test_cluster>
+        <test_cluster_mixed>
             <shard>
                 <internal_replication>true</internal_replication>
                 <replica>
@@ -13,7 +14,7 @@
                 </replica>
             </shard>
             <shard>
-                <internal_replication>true</internal_replication>
+                <internal_replication>false</internal_replication>
                 <replica>
                     <host>node3</host>
                     <port>9000</port>
@@ -23,6 +24,11 @@
                     <port>9000</port>
                 </replica>
             </shard>
-        </test_cluster>
+        </test_cluster_mixed>
     </remote_servers>
+    <macros>
+        <shard>1</shard>
+        <replica>node4</replica>
+    </macros>
+
 </yandex>

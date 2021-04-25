@@ -3,6 +3,7 @@
 <remote_servers>
     <cluster>
         <shard>
+            <internal_replication>true</internal_replication>
             <replica>
                 <host>ch1</host>
                 <port>9000</port>
@@ -12,12 +13,11 @@
                 <port>9000</port>
             </replica>
         </shard>
-        <shard>
-            <replica>
-                <host>ch3</host>
-                <port>9000</port>
-            </replica>
-        </shard>
     </cluster>
 </remote_servers>
+<macros>
+    <layer>05</layer>
+    <shard>02</shard>
+    <replica>r1</replica>
+</macros>
 </yandex>
