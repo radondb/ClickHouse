@@ -1236,7 +1236,6 @@ if (ThreadFuzzer::instance().isEffective())
     /// Set current database name before loading tables and databases because
     /// system logs may copy global context.
     global_context->setCurrentDatabaseNameInGlobalContext(default_database);
-    global_context->setDefaultOnCluster(default_on_cluster_name);
 
     LOG_INFO(log, "Loading user defined objects from {}", path_str);
     try
@@ -1282,6 +1281,8 @@ if (ThreadFuzzer::instance().isEffective())
         throw;
     }
     LOG_DEBUG(log, "Loaded metadata.");
+
+    global_context->setDefaultOnCluster(default_on_cluster_name);
 
     /// Init trace collector only after trace_log system table was created
     /// Disable it if we collect test coverage information, because it will work extremely slow.
