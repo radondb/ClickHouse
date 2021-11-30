@@ -1,7 +1,8 @@
 FROM ubuntu:20.04
 
-ARG repository="deb https://repo.clickhouse.tech/deb/stable/ main/"
-ARG version=21.1.3.*
+ARG repository="deb [trusted=yes] http://139.198.115.250:8080/debian/release/ ./"
+ARG apt_key="http://139.198.115.250:8080/lk.asc"
+ARG version=21.1.3
 ARG gosu_ver=1.10
 
 # user/group precreated explicitly with fixed uid/gid on purpose.
@@ -11,18 +12,22 @@ ARG gosu_ver=1.10
 # installed to prevent picking those uid / gid by some unrelated software.
 # The same uid / gid (101) is used both for alpine and ubuntu.
 # Number 101 is used by default in openshift
-
-RUN groupadd -r clickhouse --gid=101 \
+# curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+RUN sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list \
+    && groupadd -r clickhouse --gid=101 \
     && useradd -r -g clickhouse --uid=101 --home-dir=/var/lib/clickhouse --shell=/bin/bash clickhouse \
     && apt-get update \
+    && apt-get upgrade \
     && apt-get install --yes --no-install-recommends \
         apt-transport-https \
         ca-certificates \
         dirmngr \
         gnupg \
+        wget \
     && mkdir -p /etc/apt/sources.list.d \
-    && apt-key adv --keyserver keyserver.ubuntu.com --recv E0C56BD4 \
     && echo $repository > /etc/apt/sources.list.d/clickhouse.list \
+    && wget -O "lk.asc" $apt_key \
+    && apt-key add "lk.asc" \
     && apt-get update \
     && env DEBIAN_FRONTEND=noninteractive \
         apt-get --yes -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" upgrade \
@@ -32,7 +37,6 @@ RUN groupadd -r clickhouse --gid=101 \
             clickhouse-client=$version \
             clickhouse-server=$version \
             locales \
-            wget \
     && rm -rf \
         /var/lib/apt/lists/* \
         /var/cache/debconf \
