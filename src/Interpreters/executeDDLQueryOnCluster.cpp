@@ -52,16 +52,28 @@ bool isSupportedAlterType(int type)
 
 bool isExecutionOnCluster(ASTPtr & query_ptr_, const Context & context)
 {
-    if (auto * query = dynamic_cast<ASTQueryWithOnCluster *>(query_ptr_.get()))
-    {
-        const auto & kind = context.getClientInfo().query_kind;
-        if (kind != ClientInfo::QueryKind::SECONDARY_QUERY && !context.getDefaultOnCluster().empty())
-            query->cluster = context.getDefaultOnCluster();
+    ASTPtr query_ptr = query_ptr_->clone();
+    ASTQueryWithOutput::resetOutputASTIfExist(*query_ptr);
 
-        return !query->cluster.empty();
+    auto * query = dynamic_cast<ASTQueryWithOnCluster *>(query_ptr.get());
+
+    if (!query)
+        return false;
+
+    if (const auto * query_alter = query_ptr->as<ASTAlterQuery>())
+    {
+        for (const auto & command : query_alter->command_list->children)
+        {
+            if (!isSupportedAlterType(command->as<ASTAlterCommand&>().type))
+                return false;
+        }
     }
 
-    return false;
+    const auto & kind = context.getClientInfo().query_kind;
+    if (kind != ClientInfo::QueryKind::SECONDARY_QUERY && !context.getDefaultOnCluster().empty())
+        query->cluster = context.getDefaultOnCluster();
+
+    return !query->cluster.empty();
 }
 
 BlockIO executeDDLQueryOnCluster(const ASTPtr & query_ptr_, ContextPtr context)
