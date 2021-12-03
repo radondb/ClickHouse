@@ -1528,6 +1528,19 @@ private:
 
 bool isExecutionOnCluster(ASTPtr & query_ptr_, const Context & context)
 {
+    /// Remove FORMAT <fmt> and INTO OUTFILE <file> if exists
+    ASTPtr query_ptr = query_ptr_->clone();
+    ASTQueryWithOutput::resetOutputASTIfExist(*query_ptr);
+
+    if (const auto * query_alter = query_ptr->as<ASTAlterQuery>())
+    {
+        for (const auto & command : query_alter->command_list->children)
+        {
+            if (!isSupportedAlterType(command->as<ASTAlterCommand&>().type))
+                return false;
+        }
+    }
+
     if (auto * query = dynamic_cast<ASTQueryWithOnCluster *>(query_ptr_.get()))
     {
         const auto & kind = context.getClientInfo().query_kind;
