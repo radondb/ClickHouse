@@ -50,30 +50,45 @@ bool isSupportedAlterType(int type)
     return unsupported_alter_types.count(type) == 0;
 }
 
-bool isExecutionOnCluster(ASTPtr & query_ptr_, const Context & context)
+bool isSupportedDefaultOnClusterType(int type)
 {
-    ASTPtr query_ptr = query_ptr_->clone();
-    ASTQueryWithOutput::resetOutputASTIfExist(*query_ptr);
+    static const std::unordered_set<int> unsupported_default_on_cluster_types{
 
-    auto * query = dynamic_cast<ASTQueryWithOnCluster *>(query_ptr.get());
+        ASTAlterCommand::FREEZE_ALL,
+        ASTAlterCommand::FREEZE_PARTITION,
+    };
 
-    if (!query)
-        return false;
+    return unsupported_default_on_cluster_types.count(type) == 0;
+}
 
-    if (const auto * query_alter = query_ptr->as<ASTAlterQuery>())
+bool isExecutionOnCluster(ASTPtr & query_ptr_, ContextPtr context)
+{
+    if (auto * query = dynamic_cast<ASTQueryWithOnCluster *>(query_ptr_.get()))
     {
-        for (const auto & command : query_alter->command_list->children)
+        bool flag = true;
+        ASTPtr query_ptr = query_ptr_->clone();
+        ASTQueryWithOutput::resetOutputASTIfExist(*query_ptr);
+
+        if (const auto * query_alter = query_ptr->as<ASTAlterQuery>())
         {
-            if (!isSupportedAlterType(command->as<ASTAlterCommand&>().type))
-                return false;
+            for (const auto & command : query_alter->command_list->children)
+            {
+                if (!isSupportedAlterType(command->as<ASTAlterCommand&>().type) || !isSupportedDefaultOnClusterType(command->as<ASTAlterCommand&>().type))
+                    flag = false;
+            }
         }
+
+        if (flag)
+        {
+            const auto & kind = context->getClientInfo().query_kind;
+            if (kind != ClientInfo::QueryKind::SECONDARY_QUERY && !context->getDefaultOnCluster().empty())
+                query->cluster = context->getDefaultOnCluster();
+        }
+
+        return !query->cluster.empty();
     }
 
-    const auto & kind = context.getClientInfo().query_kind;
-    if (kind != ClientInfo::QueryKind::SECONDARY_QUERY && !context.getDefaultOnCluster().empty())
-        query->cluster = context.getDefaultOnCluster();
-
-    return !query->cluster.empty();
+    return false;
 }
 
 BlockIO executeDDLQueryOnCluster(const ASTPtr & query_ptr_, ContextPtr context)
