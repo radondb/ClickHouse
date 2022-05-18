@@ -21,7 +21,7 @@ struct DDLLogEntry;
 /// Returns true if provided ALTER type can be executed ON CLUSTER
 bool isSupportedAlterType(int type);
 
-bool isExecutionOnCluster(ASTPtr & query_ptr_, const Context & context);
+bool isExecutionOnCluster(ASTPtr & query_ptr_, ContextPtr context);
 
 /// Pushes distributed DDL query to the queue.
 /// Returns DDLQueryStatusSource, which reads results of query execution on each host in the cluster.
