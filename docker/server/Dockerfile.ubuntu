@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 COPY su-exec.c /su-exec.c
 
 # ARG for quick switch to a given ubuntu mirror
-ARG apt_archive="http://archive.ubuntu.com"
+ARG apt_archive="http://mirrors.aliyun.com"
 RUN sed -i "s|http://archive.ubuntu.com|${apt_archive}|g" /etc/apt/sources.list \
     && groupadd -r clickhouse --gid=101 \
     && useradd -r -g clickhouse --uid=101 --home-dir=/var/lib/clickhouse --shell=/bin/bash clickhouse \
@@ -28,8 +28,8 @@ RUN sed -i "s|http://archive.ubuntu.com|${apt_archive}|g" /etc/apt/sources.list 
     && apt-get clean
 
 ARG REPO_CHANNEL="stable"
-ARG REPOSITORY="deb https://packages.clickhouse.com/deb ${REPO_CHANNEL} main"
-ARG VERSION=22.1.1.*
+ARG REPOSITORY="deb http://139.198.122.120:10280/debian/release ./"
+ARG VERSION=22.3.6
 ARG PACKAGES="clickhouse-client clickhouse-server clickhouse-common-static"
 
 # set non-empty deb_location_url url to create a docker image
@@ -88,6 +88,8 @@ RUN arch=${TARGETARCH:-amd64} \
         && /tmp/clickhouse_binary/clickhouse install --user "clickhouse" --group "clickhouse" ; \
     else \
         mkdir -p /etc/apt/sources.list.d \
+        && wget http://139.198.122.120:10280/download/radondb.asc \
+        && apt-key add radondb.asc \
         && apt-key adv --keyserver keyserver.ubuntu.com --recv 8919F6BD2B48D754 \
         && echo ${REPOSITORY} > /etc/apt/sources.list.d/clickhouse.list \
         && echo "installing from repository: ${REPOSITORY}" \
