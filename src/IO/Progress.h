@@ -2,11 +2,10 @@
 
 #include <atomic>
 #include <cstddef>
-#include <common/types.h>
+#include <functional>
+#include <base/types.h>
 
 #include <Core/Defines.h>
-#include <Common/Stopwatch.h>
-
 
 namespace DB
 {
@@ -57,7 +56,7 @@ struct FileProgress
     size_t read_bytes;
     size_t total_bytes_to_read;
 
-    FileProgress(size_t read_bytes_, size_t total_bytes_to_read_ = 0) : read_bytes(read_bytes_), total_bytes_to_read(total_bytes_to_read_) {}
+    explicit FileProgress(size_t read_bytes_, size_t total_bytes_to_read_ = 0) : read_bytes(read_bytes_), total_bytes_to_read(total_bytes_to_read_) {}
 };
 
 
@@ -112,12 +111,20 @@ struct Progress
 
     ProgressValues fetchAndResetPiecewiseAtomically();
 
-    Progress & operator=(Progress && other);
+    Progress & operator=(Progress && other) noexcept;
 
-    Progress(Progress && other)
+    Progress(Progress && other) noexcept
     {
         *this = std::move(other);
     }
 };
+
+
+/** Callback to track the progress of the query.
+  * Used in QueryPipeline and Context.
+  * The function takes the number of rows in the last block, the number of bytes in the last block.
+  * Note that the callback can be called from different threads.
+  */
+using ProgressCallback = std::function<void(const Progress & progress)>;
 
 }

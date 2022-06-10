@@ -4,11 +4,10 @@
 #include <optional>
 #include <mutex>
 
-#include <common/shared_ptr_helper.h>
+#include <base/shared_ptr_helper.h>
 
 #include <Core/NamesAndTypes.h>
 #include <Storages/IStorage.h>
-#include <DataStreams/IBlockOutputStream.h>
 
 #include <Common/MultiVersion.h>
 
@@ -22,7 +21,7 @@ namespace DB
   */
 class StorageMemory final : public shared_ptr_helper<StorageMemory>, public IStorage
 {
-friend class MemoryBlockOutputStream;
+friend class MemorySink;
 friend struct shared_ptr_helper<StorageMemory>;
 
 public:
@@ -30,9 +29,18 @@ public:
 
     size_t getSize() const { return data.get()->size(); }
 
+    /// Snapshot for StorageMemory contains current set of blocks
+    /// at the moment of the start of query.
+    struct SnapshotData : public StorageSnapshot::Data
+    {
+        std::shared_ptr<const Blocks> blocks;
+    };
+
+    StorageSnapshotPtr getStorageSnapshot(const StorageMetadataPtr & metadata_snapshot) const override;
+
     Pipe read(
         const Names & column_names,
-        const StorageMetadataPtr & /*metadata_snapshot*/,
+        const StorageSnapshotPtr & storage_snapshot,
         SelectQueryInfo & query_info,
         ContextPtr context,
         QueryProcessingStage::Enum processed_stage,
@@ -41,13 +49,14 @@ public:
 
     bool supportsParallelInsert() const override { return true; }
     bool supportsSubcolumns() const override { return true; }
+    bool supportsDynamicSubcolumns() const override { return true; }
 
     /// Smaller blocks (e.g. 64K rows) are better for CPU cache.
     bool prefersLargeBlocks() const override { return false; }
 
     bool hasEvenlyDistributedRead() const override { return true; }
 
-    BlockOutputStreamPtr write(const ASTPtr & query, const StorageMetadataPtr & metadata_snapshot, ContextPtr context) override;
+    SinkToStoragePtr write(const ASTPtr & query, const StorageMetadataPtr & metadata_snapshot, ContextPtr context) override;
 
     void drop() override;
 

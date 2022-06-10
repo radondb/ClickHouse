@@ -26,6 +26,7 @@ SELECT
 ## timeZone {#timezone}
 
 Returns the timezone of the server.
+If it is executed in the context of a distributed table, then it generates a normal column with values relevant to each shard. Otherwise it produces a constant value.
 
 **Syntax**
 
@@ -56,7 +57,7 @@ Alias: `toTimezone`.
 **Arguments**
 
 -   `value` — Time or date and time. [DateTime64](../../sql-reference/data-types/datetime64.md).
--   `timezone` — Timezone for the returned value. [String](../../sql-reference/data-types/string.md).
+-   `timezone` — Timezone for the returned value. [String](../../sql-reference/data-types/string.md). This argument is a constant, because `toTimezone` changes the timezone of a column (timezone is an attribute of `DateTime*` types).
 
 **Returned value**
 
@@ -80,6 +81,7 @@ SELECT toDateTime('2019-01-01 00:00:00', 'UTC') AS time_utc,
     toInt32(time_samoa) AS int32samoa
 FORMAT Vertical;
 ```
+
 Result:
 
 ```text
@@ -321,7 +323,7 @@ Truncates sub-seconds.
 **Syntax**
 
 ``` sql
-toStartOfSecond(value[, timezone])
+toStartOfSecond(value, [timezone])
 ```
 
 **Arguments**
@@ -356,13 +358,13 @@ Query with timezone:
 
 ``` sql
 WITH toDateTime64('2020-01-01 10:20:30.999', 3) AS dt64
-SELECT toStartOfSecond(dt64, 'Europe/Moscow');
+SELECT toStartOfSecond(dt64, 'Asia/Istanbul');
 ```
 
 Result:
 
 ``` text
-┌─toStartOfSecond(dt64, 'Europe/Moscow')─┐
+┌─toStartOfSecond(dt64, 'Asia/Istanbul')─┐
 │                2020-01-01 13:20:30.000 │
 └────────────────────────────────────────┘
 ```
@@ -558,13 +560,13 @@ Result:
 Query with the specified timezone:
 
 ```sql
-SELECT now(), date_trunc('hour', now(), 'Europe/Moscow');
+SELECT now(), date_trunc('hour', now(), 'Asia/Istanbul');
 ```
 
 Result:
 
 ```text
-┌───────────────now()─┬─date_trunc('hour', now(), 'Europe/Moscow')─┐
+┌───────────────now()─┬─date_trunc('hour', now(), 'Asia/Istanbul')─┐
 │ 2020-09-28 10:46:26 │                        2020-09-28 13:00:00 │
 └─────────────────────┴────────────────────────────────────────────┘
 ```
@@ -869,13 +871,13 @@ Result:
 Query with the specified timezone:
 
 ``` sql
-SELECT now('Europe/Moscow');
+SELECT now('Asia/Istanbul');
 ```
 
 Result:
 
 ``` text
-┌─now('Europe/Moscow')─┐
+┌─now('Asia/Istanbul')─┐
 │  2020-10-17 10:42:23 │
 └──────────────────────┘
 ```
@@ -893,7 +895,6 @@ The same as ‘today() - 1’.
 ## timeSlot {#timeslot}
 
 Rounds the time to the half hour.
-This function is specific to Yandex.Metrica, since half an hour is the minimum amount of time for breaking a session into two sessions if a tracking tag shows a single user’s consecutive pageviews that differ in time by strictly more than this amount. This means that tuples (the tag ID, user ID, and time slot) can be used to search for pageviews that are included in the corresponding session.
 
 ## toYYYYMM {#toyyyymm}
 
@@ -1014,7 +1015,7 @@ Result:
 
 ## dateName {#dataname}
 
-Returns part of date with specified date part.
+Returns specified part of date.
 
 **Syntax**
 
@@ -1024,13 +1025,13 @@ dateName(date_part, date)
 
 **Arguments**
 
--   `date_part` - Date part. Possible values .
--   `date` — Date [Date](../../sql-reference/data-types/date.md) or DateTime [DateTime](../../sql-reference/data-types/datetime.md), [DateTime64](../../sql-reference/data-types/datetime64.md).
-
+-   `date_part` — Date part. Possible values: 'year', 'quarter', 'month', 'week', 'dayofyear', 'day', 'weekday', 'hour', 'minute', 'second'. [String](../../sql-reference/data-types/string.md).
+-   `date` — Date. [Date](../../sql-reference/data-types/date.md), [DateTime](../../sql-reference/data-types/datetime.md) or [DateTime64](../../sql-reference/data-types/datetime64.md).
+-   `timezone` — Timezone. Optional. [String](../../sql-reference/data-types/string.md).
 
 **Returned value**
 
--   Specified date part of date.
+-   The specified part of date.
 
 Type: [String](../../sql-reference/data-types/string.md#string)
 

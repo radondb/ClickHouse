@@ -5,9 +5,7 @@
 #include <Core/Names.h>
 #include <Interpreters/Context_fwd.h>
 
-#if !defined(ARCADIA_BUILD)
-#    include "config_core.h"
-#endif
+#include "config_core.h"
 
 namespace DB
 {
@@ -26,8 +24,6 @@ using FunctionOverloadResolverPtr = std::shared_ptr<IFunctionOverloadResolver>;
 
 class IDataType;
 using DataTypePtr = std::shared_ptr<const IDataType>;
-
-class CompiledExpressionCache;
 
 namespace JSONBuilder
 {
@@ -63,8 +59,6 @@ public:
         FUNCTION,
     };
 
-    static const char * typeToString(ActionType type);
-
     struct Node;
     using NodeRawPtrs = std::vector<Node *>;
     using NodeRawConstPtrs = std::vector<const Node *>;
@@ -85,6 +79,9 @@ public:
         ExecutableFunctionPtr function;
         /// If function is a compiled statement.
         bool is_function_compiled = false;
+        /// It is deterministic (See IFunction::isDeterministic).
+        /// This property is kept after constant folding of non-deterministic functions like 'now', 'today'.
+        bool is_deterministic = true;
 
         /// For COLUMN node and propagated constants.
         ColumnPtr column;
@@ -163,23 +160,55 @@ public:
     bool isInputProjected() const { return project_input; }
     bool isOutputProjected() const { return projected_output; }
 
-    void removeUnusedActions(const Names & required_names);
-    void removeUnusedActions(const NameSet & required_names);
+    void removeUnusedActions(const Names & required_names, bool allow_remove_inputs = true, bool allow_constant_folding = true);
+    void removeUnusedActions(const NameSet & required_names, bool allow_remove_inputs = true, bool allow_constant_folding = true);
 
+    /// Transform the current DAG in a way that leaf nodes get folded into their parents. It's done
+    /// because each projection can provide some columns as inputs to substitute certain sub-DAGs
+    /// (expressions). Consider the following example:
+    /// CREATE TABLE tbl (dt DateTime, val UInt64,
+    ///                   PROJECTION p_hour (SELECT SUM(val) GROUP BY toStartOfHour(dt)));
+    ///
+    /// Query: SELECT toStartOfHour(dt), SUM(val) FROM tbl GROUP BY toStartOfHour(dt);
+    ///
+    /// We will have an ActionsDAG like this:
+    /// FUNCTION: toStartOfHour(dt)       SUM(val)
+    ///                 ^                   ^
+    ///                 |                   |
+    /// INPUT:          dt                  val
+    ///
+    /// Now we traverse the DAG and see if any FUNCTION node can be replaced by projection's INPUT node.
+    /// The result DAG will be:
+    /// INPUT:  toStartOfHour(dt)       SUM(val)
+    ///
+    /// We don't need aggregate columns from projection because they are matched after DAG.
+    /// Currently we use canonical names of each node to find matches. It can be improved after we
+    /// have a full-featured name binding system.
+    ///
+    /// @param required_columns should contain columns which this DAG is required to produce after folding. It used for result actions.
+    /// @param projection_block_for_keys contains all key columns of given projection.
+    /// @param predicate_column_name means we need to produce the predicate column after folding.
+    /// @param add_missing_keys means whether to add additional missing columns to input nodes from projection key columns directly.
+    /// @return required columns for this folded DAG. It's expected to be fewer than the original ones if some projection is used.
     NameSet foldActionsByProjection(
         const NameSet & required_columns,
         const Block & projection_block_for_keys,
         const String & predicate_column_name = {},
         bool add_missing_keys = true);
+
+    /// Reorder the index nodes using given position mapping.
     void reorderAggregationKeysForProjection(const std::unordered_map<std::string_view, size_t> & key_names_pos_map);
+
+    /// Add aggregate columns to index nodes from projection
     void addAggregatesViaProjection(const Block & aggregates);
 
     bool hasArrayJoin() const;
     bool hasStatefulFunctions() const;
     bool trivial() const; /// If actions has no functions or array join.
+    void assertDeterministic() const; /// Throw if not isDeterministic.
 
 #if USE_EMBEDDED_COMPILER
-    void compileExpressions(size_t min_count_to_compile_expression);
+    void compileExpressions(size_t min_count_to_compile_expression, const std::unordered_set<const Node *> & lazy_executed_nodes = {});
 #endif
 
     ActionsDAGPtr clone() const;
@@ -212,6 +241,7 @@ public:
     /// Conversion should be possible with only usage of CAST function and renames.
     /// @param ignore_constant_values - Do not check that constants are same. Use value from result_header.
     /// @param add_casted_columns - Create new columns with converted values instead of replacing original.
+    /// @param new_names - Output parameter for new column names when add_casted_columns is used.
     static ActionsDAGPtr makeConvertingActions(
         const ColumnsWithTypeAndName & source,
         const ColumnsWithTypeAndName & result,
@@ -270,10 +300,10 @@ public:
 private:
     Node & addNode(Node node);
 
-    void removeUnusedActions(bool allow_remove_inputs = true);
+    void removeUnusedActions(bool allow_remove_inputs = true, bool allow_constant_folding = true);
 
 #if USE_EMBEDDED_COMPILER
-    void compileFunctions(size_t min_count_to_compile_expression);
+    void compileFunctions(size_t min_count_to_compile_expression, const std::unordered_set<const Node *> & lazy_executed_nodes = {});
 #endif
 
     static ActionsDAGPtr cloneActionsForConjunction(NodeRawConstPtrs conjunction, const ColumnsWithTypeAndName & all_inputs);

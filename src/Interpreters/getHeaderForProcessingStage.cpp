@@ -3,8 +3,10 @@
 #include <Interpreters/TreeRewriter.h>
 #include <Interpreters/IdentifierSemantic.h>
 #include <Storages/IStorage.h>
-#include <DataStreams/OneBlockInputStream.h>
+#include <Parsers/ASTFunction.h>
+#include <Parsers/ASTIdentifier.h>
 #include <Parsers/ASTTablesInSelectQuery.h>
+#include <Processors/Sources/SourceFromSingleChunk.h>
 
 namespace DB
 {
@@ -55,7 +57,7 @@ bool removeJoin(ASTSelectQuery & select, TreeRewriterResult & rewriter_result, C
         const size_t left_table_pos = 0;
         /// Test each argument of `and` function and select ones related to only left table
         std::shared_ptr<ASTFunction> new_conj = makeASTFunction("and");
-        for (const auto & node : collectConjunctions(where))
+        for (auto && node : collectConjunctions(where))
         {
             if (membership_collector.getIdentsMembership(node) == left_table_pos)
                 new_conj->arguments->children.push_back(std::move(node));
@@ -80,9 +82,8 @@ bool removeJoin(ASTSelectQuery & select, TreeRewriterResult & rewriter_result, C
 }
 
 Block getHeaderForProcessingStage(
-        const IStorage & storage,
         const Names & column_names,
-        const StorageMetadataPtr & metadata_snapshot,
+        const StorageSnapshotPtr & storage_snapshot,
         const SelectQueryInfo & query_info,
         ContextPtr context,
         QueryProcessingStage::Enum processed_stage)
@@ -91,19 +92,20 @@ Block getHeaderForProcessingStage(
     {
         case QueryProcessingStage::FetchColumns:
         {
-            Block header = metadata_snapshot->getSampleBlockForColumns(column_names, storage.getVirtuals(), storage.getStorageID());
+            Block header = storage_snapshot->getSampleBlockForColumns(column_names);
+
             if (query_info.prewhere_info)
             {
                 auto & prewhere_info = *query_info.prewhere_info;
 
                 if (prewhere_info.row_level_filter)
                 {
-                    prewhere_info.row_level_filter->execute(header);
+                    header = prewhere_info.row_level_filter->updateHeader(std::move(header));
                     header.erase(prewhere_info.row_level_column_name);
                 }
 
                 if (prewhere_info.prewhere_actions)
-                    prewhere_info.prewhere_actions->execute(header);
+                    header = prewhere_info.prewhere_actions->updateHeader(std::move(header));
 
                 if (prewhere_info.remove_prewhere_column)
                     header.erase(prewhere_info.prewhere_column_name);
@@ -113,15 +115,16 @@ Block getHeaderForProcessingStage(
         case QueryProcessingStage::WithMergeableState:
         case QueryProcessingStage::Complete:
         case QueryProcessingStage::WithMergeableStateAfterAggregation:
+        case QueryProcessingStage::WithMergeableStateAfterAggregationAndLimit:
         case QueryProcessingStage::MAX:
         {
             auto query = query_info.query->clone();
             TreeRewriterResult new_rewriter_result = *query_info.syntax_analyzer_result;
             removeJoin(*query->as<ASTSelectQuery>(), new_rewriter_result, context);
 
-            auto stream = std::make_shared<OneBlockInputStream>(
-                    metadata_snapshot->getSampleBlockForColumns(column_names, storage.getVirtuals(), storage.getStorageID()));
-            return InterpreterSelectQuery(query, context, stream, SelectQueryOptions(processed_stage).analyze()).getSampleBlock();
+            auto pipe = Pipe(std::make_shared<SourceFromSingleChunk>(
+                    storage_snapshot->getSampleBlockForColumns(column_names)));
+            return InterpreterSelectQuery(query, context, std::move(pipe), SelectQueryOptions(processed_stage).analyze()).getSampleBlock();
         }
     }
     throw Exception("Logical Error: unknown processed stage.", ErrorCodes::LOGICAL_ERROR);
